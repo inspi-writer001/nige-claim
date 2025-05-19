@@ -50,21 +50,13 @@ contract NigeClaimContract with Deployable {
     }
 
 
-    receive(msg: JettonNotification){
-    // Debug: Log that we received a JettonNotification
-    // dump("Received JettonNotification");
-    // dump("From sender:");
-    // dump(msg.sender);
-    // dump("With amount:");
-    // dump(msg.amount);
-    // dump("Payload bits:");
-    // dump(msg.forwardPayload.bits());
+receive(msg: JettonNotification){
     
     // First check if the message is actually a JettonNotification
     // and if the forward payload exists
     if (msg.forwardPayload.bits() < 32) {
         // Not enough bits to even read the operation code
-        // dump("Payload too short - ignoring");
+
         return; // Just ignore invalid notifications
     }
     
@@ -72,11 +64,7 @@ contract NigeClaimContract with Deployable {
         // Read raw opcode first to check if it's what we expect
         let s = msg.forwardPayload;
         let opCode = s.loadUint(32);
-        
-        // dump("Received opCode:");
-        // dump(opCode);
-        // dump("Expected opCode (OP_CREATE_TASK):");
-        // dump(OP_CREATE_TASK);
+
         
         if (opCode != OP_CREATE_TASK) {
             // Not our operation, just ignore
@@ -85,42 +73,20 @@ contract NigeClaimContract with Deployable {
         }
         
         // Now manually parse the rest of the message fields
-        // dump("Parsing task creation parameters...");
         
         // This avoids potential issues with the CreateTaskMsg.fromSlice() method
         let taskCode = s.loadUint(64);
         let rewardPerUser = s.loadUint(64);
         let maxClaims = s.loadUint(32);
         let deadlineHours = s.loadUint(32);
-        
-        // dump("Task parameters:");
-        // dump("- taskCode: " );
-        // dump(taskCode);
-        // dump("- rewardPerUser: " );
-        // dump(rewardPerUser);
-        // dump("- maxClaims: " );
-        // dump(maxClaims);
-        // dump("- deadlineHours: " );
-        // dump(deadlineHours);
-        
-        // Validate sender authorization
-        // dump("Checking sender authorization...");
-        // dump("Sender: " );
-        // dump( msg.sender);
-        // dump("Owner: " );
-        // dump(self.owner);
+
         
         if (msg.sender != self.owner) {
-            // dump("Authorization failed - not owner");
             return;
         }
         
         // Compute expected deposit
         let needed = rewardPerUser * maxClaims;
-        // dump("Needed deposit: ");
-        // dump(needed);
-        // dump("Actual deposit: ");
-        // dump(msg.amount);
         
         if (msg.amount < needed) {
             // dump("Insufficient deposit");
@@ -129,10 +95,6 @@ contract NigeClaimContract with Deployable {
         
         // Record the task + its pool
         let deadlineTs = now() + (deadlineHours * 3600);
-        
-        // dump("Creating new task...");
-        // dump("Current task counter: " );
-        // dump(self.taskCounter);
         
         let newTask = Task{
             code: taskCode,
@@ -145,25 +107,12 @@ contract NigeClaimContract with Deployable {
         };
         
         self.taskCounter += 1;
-        
-        // dump("New task counter: " );
-        // dump(self.taskCounter);
-        
-        // dump("Storing task in map with ID: ");
-        // dump(self.taskCounter);
         self.tasks.set(self.taskCounter, newTask);
-        
-        // dump("Storing pool amount in map with ID: ");
-        // dump(self.taskCounter);
         self.pools.set(self.taskCounter, needed);
-        
-        // dump("Task creation successful!");
         
         // Refund any over-deposit
         if (msg.amount > needed) {
             let refund = msg.amount - needed;
-            // dump("Refunding excess: ");
-            // dump( refund);
             send(SendParameters{
                 to: msg.sender, 
                 value: refund, 

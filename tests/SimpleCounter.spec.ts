@@ -158,113 +158,113 @@ describe('SimpleCounter', () => {
 
     // --------------------------------------------⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️ ----------------------------------------------------------
 
-    // it('should create task', async () => {
-    //     // Set up wallet and client
-    //     const mnemonic =
-    //         'stand window ill evil laugh cricket fantasy finish detail alcohol dune meadow prefer banner rough ball body empty easy lyrics essay fruit slice suit'.split(
-    //             ' ',
-    //         );
-    //     const key = await mnemonicToWalletKey(mnemonic);
+    it('should create task', async () => {
+        // Set up wallet and client
+        const mnemonic =
+            'stand window ill evil laugh cricket fantasy finish detail alcohol dune meadow prefer banner rough ball body empty easy lyrics essay fruit slice suit'.split(
+                ' ',
+            );
+        const key = await mnemonicToWalletKey(mnemonic);
 
-    //     const client = new TonClient({
-    //         endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
-    //         apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
-    //     });
+        const client = new TonClient({
+            endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
+            apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
+        });
 
-    //     const wallet = WalletContractV5R1.create({
-    //         workchain: 0,
-    //         publicKey: key.publicKey,
-    //         walletId: { networkGlobalId: -3 },
-    //     });
+        const wallet = WalletContractV5R1.create({
+            workchain: 0,
+            publicKey: key.publicKey,
+            walletId: { networkGlobalId: -3 },
+        });
 
-    //     const walletContract = client.open(wallet);
-    //     console.log('Wallet Address:', walletContract.address.toString());
+        const walletContract = client.open(wallet);
+        console.log('Wallet Address:', walletContract.address.toString());
 
-    //     // Get jetton data
-    //     const jettonRootAddress = Address.parse('EQAb_8LdTzsDBWmiyVxdidb8xCMyuTJkNC5Cn2UpMMkHt2qC');
-    //     const res = await client.runMethod(jettonRootAddress, 'get_jetton_data');
-    //     const totalSupply = res.stack.readBigNumber(); // [0] total_supply
-    //     const mintable = res.stack.readBigNumber(); // [1] mintable flag (e.g., -1 or 0)
-    //     const adminCell = res.stack.readCell(); // [2] admin_address (as Cell)
-    //     const contentCell = res.stack.readCell(); // [3] content (Jetton metadata)
-    //     const walletCodeCell = res.stack.readCell(); // [4] jetton_wallet_code
+        // Get jetton data
+        const jettonRootAddress = Address.parse('EQAb_8LdTzsDBWmiyVxdidb8xCMyuTJkNC5Cn2UpMMkHt2qC');
+        const res = await client.runMethod(jettonRootAddress, 'get_jetton_data');
+        const totalSupply = res.stack.readBigNumber(); // [0] total_supply
+        const mintable = res.stack.readBigNumber(); // [1] mintable flag (e.g., -1 or 0)
+        const adminCell = res.stack.readCell(); // [2] admin_address (as Cell)
+        const contentCell = res.stack.readCell(); // [3] content (Jetton metadata)
+        const walletCodeCell = res.stack.readCell(); // [4] jetton_wallet_code
 
-    //     // Contract address
-    //     const contractAddress = Address.parse(contractAddress_);
+        // Contract address
+        const contractAddress = Address.parse(contractAddress_);
 
-    //     // Get user's jetton wallet address
-    //     const userJettonWalletRes = await client.runMethod(jettonRootAddress, 'get_wallet_address', [
-    //         { type: 'slice', cell: beginCell().storeAddress(walletContract.address).endCell() },
-    //     ]);
-    //     const userJettonWalletAddress = userJettonWalletRes.stack.readAddress();
-    //     console.log('User Jetton Wallet:', userJettonWalletAddress.toString());
+        // Get user's jetton wallet address
+        const userJettonWalletRes = await client.runMethod(jettonRootAddress, 'get_wallet_address', [
+            { type: 'slice', cell: beginCell().storeAddress(walletContract.address).endCell() },
+        ]);
+        const userJettonWalletAddress = userJettonWalletRes.stack.readAddress();
+        console.log('User Jetton Wallet:', userJettonWalletAddress.toString());
 
-    //     // Get contract's jetton wallet address
-    //     const contractJettonWalletRes = await client.runMethod(jettonRootAddress, 'get_wallet_address', [
-    //         { type: 'slice', cell: beginCell().storeAddress(contractAddress).endCell() },
-    //     ]);
-    //     const contractJettonWalletAddress = contractJettonWalletRes.stack.readAddress();
-    //     console.log('Contract Jetton Wallet:', contractJettonWalletAddress.toString());
+        // Get contract's jetton wallet address
+        const contractJettonWalletRes = await client.runMethod(jettonRootAddress, 'get_wallet_address', [
+            { type: 'slice', cell: beginCell().storeAddress(contractAddress).endCell() },
+        ]);
+        const contractJettonWalletAddress = contractJettonWalletRes.stack.readAddress();
+        console.log('Contract Jetton Wallet:', contractJettonWalletAddress.toString());
 
-    //     // Calculate required jettons
-    //     const rewardPerUser = toNano(23);
-    //     const maxClaims = 5;
-    //     const totalJettons = rewardPerUser * BigInt(maxClaims);
+        // Calculate required jettons
+        const rewardPerUser = toNano(23);
+        const maxClaims = 5;
+        const totalJettons = rewardPerUser * BigInt(maxClaims);
 
-    //     // Prepare task creation message payload
-    //     const taskCode = 120;
-    //     const deadlineHours = 3n;
+        // Prepare task creation message payload
+        const taskCode = 120;
+        const deadlineHours = 3n;
 
-    //     // // Build payload for the jetton transfer with task creation data
-    //     // const forwardPayload = beginCell()
-    //     //     .storeUint(OP_CREATE_TASK, 32)
-    //     //     .storeUint(taskCode, 64)
-    //     //     .storeUint(rewardPerUser, 64)
-    //     //     .storeUint(maxClaims, 32)
-    //     //     .storeUint(deadlineHours, 32)
-    //     //     .endCell();
+        // // Build payload for the jetton transfer with task creation data
+        // const forwardPayload = beginCell()
+        //     .storeUint(OP_CREATE_TASK, 32)
+        //     .storeUint(taskCode, 64)
+        //     .storeUint(rewardPerUser, 64)
+        //     .storeUint(maxClaims, 32)
+        //     .storeUint(deadlineHours, 32)
+        //     .endCell();
 
-    //     const forwardPayload = beginCell()
-    //         .storeUint(OP_CREATE_TASK, 32) // Operation code
-    //         .storeUint(taskCode, 64) // 64-bit task ID
-    //         .storeUint(rewardPerUser, 64) // Reward per user
-    //         .storeUint(maxClaims, 32) // Max claims
-    //         .storeUint(deadlineHours, 32) // Deadline hours
-    //         .endCell();
+        const forwardPayload = beginCell()
+            .storeUint(OP_CREATE_TASK, 32) // Operation code
+            .storeUint(taskCode, 64) // 64-bit task ID
+            .storeUint(rewardPerUser, 64) // Reward per user
+            .storeUint(maxClaims, 32) // Max claims
+            .storeUint(deadlineHours, 32) // Deadline hours
+            .endCell();
 
-    //     // Build jetton transfer message to send USDT with task creation payload
-    //     // This needs to go to user's USDT wallet, not directly to the contract
-    //     const seqno = await walletContract.getSeqno();
-    //     const jettonTransferBody = beginCell()
-    //         .storeUint(0xf8a7ea5, 32) // token transfer op
-    //         .storeUint(0, 64) // query id
-    //         .storeCoins(totalJettons) // amount of jettons to transfer
-    //         .storeAddress(contractAddress) // destination address (the contract)
-    //         .storeAddress(walletContract.address) // response destination
-    //         .storeBit(0) // no custom payload
-    //         .storeCoins(toNano('0.05')) // forward ton amount (for gas)
-    //         .storeBit(1) // forward payload present
-    //         .storeRef(forwardPayload) // forward payload with task creation data
-    //         .endCell();
+        // Build jetton transfer message to send USDT with task creation payload
+        // This needs to go to user's USDT wallet, not directly to the contract
+        const seqno = await walletContract.getSeqno();
+        const jettonTransferBody = beginCell()
+            .storeUint(0xf8a7ea5, 32) // token transfer op
+            .storeUint(0, 64) // query id
+            .storeCoins(totalJettons) // amount of jettons to transfer
+            .storeAddress(contractAddress) // destination address (the contract)
+            .storeAddress(walletContract.address) // response destination
+            .storeBit(0) // no custom payload
+            .storeCoins(toNano('0.05')) // forward ton amount (for gas)
+            .storeBit(1) // forward payload present
+            .storeRef(forwardPayload) // forward payload with task creation data
+            .endCell();
 
-    //     // Message to user's jetton wallet to initiate the transfer
-    //     const msg = internal({
-    //         to: userJettonWalletAddress,
-    //         value: toNano('0.1'), // funds to cover gas & forward amount
-    //         bounce: true,
-    //         body: jettonTransferBody,
-    //     });
+        // Message to user's jetton wallet to initiate the transfer
+        const msg = internal({
+            to: userJettonWalletAddress,
+            value: toNano('0.1'), // funds to cover gas & forward amount
+            bounce: true,
+            body: jettonTransferBody,
+        });
 
-    //     // Send transaction
-    //     const result = await walletContract.sendTransfer({
-    //         seqno,
-    //         secretKey: key.secretKey,
-    //         sendMode: SendMode.PAY_GAS_SEPARATELY,
-    //         messages: [msg],
-    //     });
+        // Send transaction
+        const result = await walletContract.sendTransfer({
+            seqno,
+            secretKey: key.secretKey,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            messages: [msg],
+        });
 
-    //     console.log('Transaction sent:', result);
-    // }, 30000); // Increased timeout
+        console.log('Transaction sent:', result);
+    }, 30000); // Increased timeout
 
     // --------------------------------------------⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️ ----------------------------------------------------------
 
