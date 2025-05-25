@@ -22,7 +22,7 @@ const OP_CLAIM_TASK = 0x42a0fb6d;
 const DEPLOY_VALUE_TON = '0.1';
 
 describe('SimpleCounter', () => {
-    let contractAddress_ = 'EQApGQazuadzQkWaQ6R98G3W3edFNb8y-VwqareC5QGzgrJ7';
+    let contractAddress_ = 'EQDUEQaSVZEo687oTySseXF-AYPWWlCejqiTEsKMK1F7jWXj';
 
     // it('should deploy NigeClaimContract correctly', async () => {
     //     const mnemonic =
