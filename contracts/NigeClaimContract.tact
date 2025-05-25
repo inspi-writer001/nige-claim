@@ -1,11 +1,13 @@
 import "./messages.tact";
 import "@stdlib/deploy";
+
+
 const OP_CREATE_TASK: Int = 0xCAFEBABE;
-const OP_CLAIM_TASK: Int = 0x42a0fb6d; 
+const OP_CLAIM_TASK: Int = 0x42a0fb6d;
 // const JettonTransferInternalOpcode: Int = 0x178d4519;
 // Define the Task struct at top-level
 struct Task {
-    code: Int;               // task code as number instead of string
+    code: Int; // task code as number instead of string
     rewardPerUser: Int;
     maxClaims: Int;
     currentClaims: Int;
@@ -21,8 +23,8 @@ struct JettonWalletData {
 }
 
 fun calculateJettonWalletAddress(ownerAddress: Address, jettonMasterAddress: Address, jettonWalletCode: Cell): Address {
-    let initData = JettonWalletData{balance: 0, ownerAddress, jettonMasterAddress, jettonWalletCode};
-    return contractAddress(StateInit{code: jettonWalletCode, data: initData.toCell()});
+    let initData = JettonWalletData { balance: 0, ownerAddress, jettonMasterAddress, jettonWalletCode };
+    return contractAddress(StateInit { code: jettonWalletCode, data: initData.toCell() });
 }
 
 // NigeClaimContract distributes USDT (TIP-3) via standard Jetton root and wallet
@@ -35,11 +37,12 @@ contract NigeClaimContract with Deployable {
     tasks: map<Int as uint64, Task>;
     pools: map<Int as uint64, Int as uint64>;
     taskCounter: Int as uint64;
-    
+
+    deposits: map<Address, Int as coins>;
 
     // const new_guy = crc32("hello");
     // Initializer: store Jetton root
-    init(jettonRootParam: Address, jettonWalletCode: Cell){
+    init(jettonRootParam: Address, jettonWalletCode: Cell) {
         // accept();
         self.jettonRoot = jettonRootParam;
         self.jettonWalletCode = jettonWalletCode;
@@ -47,400 +50,287 @@ contract NigeClaimContract with Deployable {
         self.taskCounter = 0;
         self.tasks = emptyMap();
         self.pools = emptyMap();
+        self.deposits = emptyMap();
     }
 
+    // Phase 1: Accept token deposits
+    receive(msg: JettonNotification) {
+        let sender = msg.sender;
+        let amount = msg.amount;
 
-receive(msg: JettonNotification){
-    
-    // First check if the message is actually a JettonNotification
-    // and if the forward payload exists
-    if (msg.forwardPayload.bits() < 32) {
-        // Not enough bits to even read the operation code
+        let initial_pool = (self.deposits.get(sender) != null) ? self.deposits.get(sender)!! : 0;
 
-        return; // Just ignore invalid notifications
+        let total_amount = initial_pool + amount;
+        // Record deposit (no task logic here)
+        self.deposits.set(sender, total_amount);
+
+        // Optional: Immediate refund if you want
+        if (msg.forwardPayload.refs() > 0) {
+            send(SendParameters {
+                to: sender,
+                value: 50000000,
+                body: beginCell()
+                    .storeUint(0xffffffff, 32) // Custom refund op
+                    .endCell(),
+            });
+        }
     }
-    
-    try {
-        // Read raw opcode first to check if it's what we expect
-        let s = msg.forwardPayload;
-        let opCode = s.loadUint(32);
 
-        
-        if (opCode != OP_CREATE_TASK) {
-            // Not our operation, just ignore
-            // dump("Opcode mismatch - ignoring");
-            return;
-        }
-        
-        // Now manually parse the rest of the message fields
-        
-        // This avoids potential issues with the CreateTaskMsg.fromSlice() method
-        let taskCode = s.loadUint(64);
-        let rewardPerUser = s.loadUint(64);
-        let maxClaims = s.loadUint(32);
-        let deadlineHours = s.loadUint(32);
+    // Phase 2: Task creation
+    receive(msg: CreateTaskMsg) {
+        let sender = sender();
+        let needed = msg.rewardPerUser * msg.maxClaims;
 
-        
-        if (msg.sender != self.owner) {
-            return;
-        }
-        
-        // Compute expected deposit
-        let needed = rewardPerUser * maxClaims;
-        
-        if (msg.amount < needed) {
-            // dump("Insufficient deposit");
-            return;
-        }
-        
-        // Record the task + its pool
-        let deadlineTs = now() + (deadlineHours * 3600);
-        
-        let newTask = Task{
-            code: taskCode,
-            rewardPerUser: rewardPerUser,
-            maxClaims: maxClaims,
+        // let current_pool = self.deposits.get(sender)!!;
+        let current_pool = (self.deposits.get(sender) != null) ? self.deposits.get(sender)!! : 0;
+
+        // Verify sufficient deposit
+        require(
+            current_pool >= needed,
+            "Insufficient deposit",
+        );
+
+        // Create task
+        let newTask = Task {
+            code: msg.code,
+            rewardPerUser: msg.rewardPerUser,
+            maxClaims: msg.maxClaims,
             currentClaims: 0,
-            creator: msg.sender,
-            deadline: deadlineTs,
-            claimed: null // start empty
+            creator: sender,
+            deadline: now() + (msg.deadline * 3600),
+            claimed: emptyMap(),
         };
-        
+
+        // Update state
         self.taskCounter += 1;
         self.tasks.set(self.taskCounter, newTask);
         self.pools.set(self.taskCounter, needed);
-        
-        // Refund any over-deposit
-        if (msg.amount > needed) {
-            let refund = msg.amount - needed;
-            send(SendParameters{
-                to: msg.sender, 
-                value: refund, 
-                bounce: false, 
-                mode: 64, 
-                body: null
-            });
+
+        self.deposits.set(sender, current_pool - needed);
+
+        // Optional event
+        send(SendParameters {
+            to: sender,
+            value: 50000000,
+            body: beginCell()
+                .storeUint(0xCAFED00D, 32) // TaskCreated op
+                .storeUint(self.taskCounter, 64)
+                .endCell(),
+        });
+    }
+
+    receive(msg: ClaimTaskMsg) {
+        require(msg.opCode == OP_CLAIM_TASK, "Invalid operation code");
+        self.new_claim(msg.taskId, msg.codeInput);
+    }
+
+    receive(msg: Slice) {
+        // If there's no data, just accept the TON
+
+        if (msg.bits() == 0) {
+            return;
         }
-    } catch (err) {
-        // Log the error but don't throw
-        dump("ERROR in JettonNotification handler:");
-        dump(err);
-        // Don't throw the error - this will allow transaction to complete
-        // but log the issue for debugging
-        // throw(err); // Comment out to prevent transaction failure
-    }
-}
 
+        // Check if we have enough bits for the operation code
+        if (msg.bits() >= 32) {
+            let op = msg.loadUint(32);
 
-//   receive(msg: JettonNotification){
-//     // First check if the message is actually a JettonNotification
-//     // and if the forward payload exists
-//     if (msg.forwardPayload.bits() < 32) {
-//         // Not enough bits to even read the operation code
-//         return; // Just ignore invalid notifications
-//     }
-    
-//     try {
-//         // Read raw opcode first to check if it's what we expect
-//         let s = msg.forwardPayload;
-//         let opCode = s.loadUint(32);
-        
-//         if (opCode != OP_CREATE_TASK) {
-//             // Not our operation, just ignore
-//             return;
-//         }
-        
-//         // Now manually parse the rest of the message fields
-//         // This avoids potential issues with the CreateTaskMsg.fromSlice() method
-//         let taskCode = s.loadUint(64);
-//         let rewardPerUser = s.loadUint(64);
-//         let maxClaims = s.loadUint(32);
-//         let deadlineHours = s.loadUint(32);
-        
-//         // Validate sender authorization
-//         require(msg.sender == self.owner, "Not contract owner");
-        
-//         // Compute expected deposit
-//         let needed = rewardPerUser * maxClaims;
-//         require(msg.amount >= needed, "Insufficient deposit");
-        
-//         // Record the task + its pool
-//         let deadlineTs = now() + (deadlineHours * 3600);
-//         let newTask = Task{
-//             code: taskCode,
-//             rewardPerUser: rewardPerUser,
-//             maxClaims: maxClaims,
-//             currentClaims: 0,
-//             creator: msg.sender,
-//             deadline: deadlineTs,
-//             claimed: null // start empty
-//         };
-        
-//         self.taskCounter += 1;
-//         self.tasks.set(self.taskCounter, newTask);
-//         self.pools.set(self.taskCounter, needed);
-        
-//         // Refund any over-deposit
-//         if (msg.amount > needed) {
-//             let refund = msg.amount - needed;
-//             send(SendParameters{
-//                 to: msg.sender, 
-//                 value: refund, 
-//                 bounce: false, 
-//                 mode: 64, 
-//                 body: null
-//             });
-//         }
-//     } catch (err) {
-//         // Just log the error but don't throw
-//         // This prevents the transaction from failing completely
-//         dump("Error processing JettonNotification");
-//         dump(err);
-//          throw(err);
-//     }
-// }
+            // Handle simple TON transfer (op code 0)
+            if (op == 0) {
+                let queryId = msg.loadUint(64);
 
-receive(msg: ClaimTaskMsg) {
-    require(msg.opCode == OP_CLAIM_TASK, "Invalid operation code");
-    self.new_claim(msg.taskId, msg.codeInput);
-}
+                // Check if there's a reference cell with the actual operation
+                if (msg.refs() > 0) {
+                    let payloadCell = msg.loadRef();
+                    let payloadSlice = payloadCell.beginParse();
 
-receive(msg: Slice) {
-    // If there's no data, just accept the TON
-   
-    if (msg.bits() == 0) {
-        return;
-    }
-   
-    // Check if we have enough bits for the operation code
-    if (msg.bits() >= 32) {
-        let op = msg.loadUint(32);
-        
-        // Handle simple TON transfer (op code 0)
-        if (op == 0) {
-            let queryId = msg.loadUint(64);
-            
-            // Check if there's a reference cell with the actual operation
-            if (msg.refs() > 0) {
-                let payloadCell = msg.loadRef();
-                let payloadSlice = payloadCell.beginParse();
-                
-                if (payloadSlice.bits() >= 32) {
-                    let payloadOp = payloadSlice.loadUint(32);
-                    
-                    // Handle claim task operation in payload
-                    if (payloadOp == OP_CLAIM_TASK) {
-                        if (payloadSlice.bits() >= 32 + 64) {
-                            let taskId = payloadSlice.loadUint(32);
-                            let codeInput = payloadSlice.loadUint(64);
-                            self.new_claim(taskId, codeInput);
-                            return;
+                    if (payloadSlice.bits() >= 32) {
+                        let payloadOp = payloadSlice.loadUint(32);
+
+                        // Handle claim task operation in payload
+                        if (payloadOp == OP_CLAIM_TASK) {
+                            if (payloadSlice.bits() >= 32 + 64) {
+                                let taskId = payloadSlice.loadUint(32);
+                                let codeInput = payloadSlice.loadUint(64);
+                                self.new_claim(taskId, codeInput);
+                                return;
+                            }
                         }
                     }
                 }
             }
-        }
-        
-        // Direct claim task operation (no nesting)
-        if (op == OP_CLAIM_TASK) {
-            if (msg.bits() >= 32 + 64) {
-                let taskId = msg.loadUint(32);
-                let codeInput = msg.loadUint(64);
-                self.new_claim(taskId, codeInput);
-                return;
+
+            // Direct claim task operation (no nesting)
+            if (op == OP_CLAIM_TASK) {
+                if (msg.bits() >= 32 + 64) {
+                    let taskId = msg.loadUint(32);
+                    let codeInput = msg.loadUint(64);
+                    self.new_claim(taskId, codeInput);
+                    return;
+                }
             }
         }
+
+        // If we reach here and can't process the message, throw an error
+        throw(132); // Error code for invalid message format
     }
-    
-    // If we reach here and can't process the message, throw an error
-    throw(132); // Error code for invalid message format
-}
 
-fun new_claim(taskId: Int, codeInput: Int) {
-    // Check if task exists before force unwrapping
+    fun new_claim(taskId: Int, codeInput: Int) {
+        // Check if task exists before force unwrapping
 
-    dump(self.tasks);
+        // dump(self.tasks);
 
-    
-    require(self.tasks.get(taskId) != null, "Task not found");
-    let task = self.tasks.get(taskId)!!;
-    
-    // Check if pool exists before force unwrapping
-    require(self.pools.get(taskId)  != null, "Pool not found for task");
-    let pool = self.pools.get(taskId)!!;
-    
-    // Standard validations
-    require(now() < task.deadline, "Expired");
-    require(task.claimed.get(sender()) != true, "Already claimed");
-    require(task.currentClaims < task.maxClaims, "Claim limit reached");
-    require(task.code == codeInput, "Invalid code");
-    require(pool >= task.rewardPerUser, "Pool emptied");
-    
-    // Check jetton-related fields before using them
-    require(!self.jettonRoot.asSlice().empty() , "Jetton root not set");
-    require(!self.jettonWalletCode.asSlice().empty(), "Jetton wallet code not set");
-    
-    // Calculate wallet address safely
-    let jettonWalletAddress = calculateJettonWalletAddress(
-        sender(),
-        self.jettonRoot, 
-        self.jettonWalletCode
-    );
-    require(!jettonWalletAddress.asSlice().empty(), "Failed to calculate jetton wallet address");
-    
-    // Build token transfer payload
-    let payload = beginCell()
-        .storeUint(0xf8a7ea5, 32)  // TokenTransfer op code
-        .storeUint(0, 64)          // query_id
-        .storeUint(task.rewardPerUser, 64)
-        .storeAddress(sender())
-        .storeAddress(sender())    // response_destination
-        .storeUint(0, 64)          // forward_ton_amount
-        .storeUint(0, 1)           // custom_payload absent
-        .storeUint(0, 64)          // forward_payload length
-        .endCell();
-    
-    // Send token transfer message
-    send(SendParameters{
-        to: jettonWalletAddress,
-        value: 0,
-        bounce: false,
-        mode: 64,
-        body: payload
-    });
-    
-    // Update state
-    self.pools.set(taskId, pool - task.rewardPerUser);
-    task.claimed.set(sender(), true);
-    task.currentClaims += 1;
-    self.tasks.set(taskId, task);
-}
+        require(self.tasks.get(taskId) != null, "Task not found");
+        let task = self.tasks.get(taskId)!!;
 
+        // Check if pool exists before force unwrapping
+        require(self.pools.get(taskId) != null, "Pool not found for task");
+        let pool = self.pools.get(taskId)!!;
 
+        // Standard validations
+        require(now() < task.deadline, "Expired");
+        require(task.claimed.get(sender()) != true, "Already claimed");
+        require(task.currentClaims < task.maxClaims, "Claim limit reached");
+        require(task.code == codeInput, "Invalid code");
+        require(pool >= task.rewardPerUser, "Pool emptied");
 
-    // fun new_claim(taskId: Int, codeInput: Int) {
-    //     let task = self.tasks.get(taskId)!!;
-    //     let pool = self.pools.get(taskId)!!;
-    //     require(now() < task.deadline, "Expired");
-    //     require(task.claimed.get(sender()) != true, "Already claimed");
-    //     require(task.currentClaims < task.maxClaims, "Claim limit reached");
-    //     require(task.code == codeInput, "Invalid code");
-    //     require(pool >= task.rewardPerUser, "Pool emptied");
-    //     // send reward
-    //     let payload = beginCell().storeUint(0xf8a7ea5,
-    //         32 // TokenTransfer op code
-    //     ).storeUint(0,
-    //         64 // query_id
-    //     ).storeUint(task.rewardPerUser, 64).storeAddress(sender()).storeAddress(sender() // response_destination
-    //     ).storeUint(0,
-    //         64 // forward_ton_amount
-    //     ).storeUint(0,
-    //         1 // custom_payload absent
-    //     ).storeUint(0,
-    //         64 // forward_payload length
-    //     ).endCell();
-    //     send(SendParameters{
-    //             to: calculateJettonWalletAddress(sender(),
-    //                     self.jettonRoot,
-    //                     self.jettonWalletCode
-    //                 )
-    //             ,
-    //             value: 0,
-    //             bounce: false,
-    //             mode: 64,
-    //             body: payload
-    //         }
-    //     );
-    //     // decrement pool + mark claimed
-    //     self.pools.set(taskId, pool - task.rewardPerUser);
-    //     task.claimed.set(sender(), true);
-    //     task.currentClaims += 1;
-    //     self.tasks.set(taskId, task);
-    // }
+        // Check jetton-related fields before using them
+        require(!self.jettonRoot.asSlice().empty(), "Jetton root not set");
+        require(!self.jettonWalletCode.asSlice().empty(), "Jetton wallet code not set");
 
-//    get fun get_all_task_ids(): Cell {
-//     let builder = beginCell();
-//     let taskCount = 0;
-    
-//     // Iterate through all tasks and collect their IDs
-//     foreach (taskId, _ in self.tasks) {
-//         if (taskCount < 255) { // Limit to prevent cell overflow
-//             builder = builder.storeUint(taskId, 32);
-//             taskCount += 1;
-//         }
-//     }
-    
-//     // Store the count at the beginning
-//     return beginCell().storeUint(taskCount, 8).storeBuilder(builder).endCell();
-// }
+        let contractJettonWallet = calculateJettonWalletAddress(
+            myAddress(), // Contract's address
+            self.jettonRoot,
+            self.jettonWalletCode,
+        );
 
-get fun get_all_task_ids(): Cell {
-    let builder = beginCell();
-    let taskCount = 0;
-    
-    // Debug: Check if tasks map exists and has entries
-    let hasElements = self.tasks.isEmpty() != true;
-    dump("Tasks map empty check: ");
-    dump(hasElements);
-    
-    // Also dump the current task counter
-    dump("Current task counter: ");
-    dump(self.taskCounter);
-    
-    // Iterate through all tasks and collect their IDs
-    foreach (taskId, _ in self.tasks) {
-        // Debug: Print each task ID we find
-        dump("Found task ID: ");
-        dump(taskId);
-        
-        if (taskCount < 255) { // Limit to prevent cell overflow
-            builder = builder.storeUint(taskId, 32);
-            taskCount += 1;
+        require(!contractJettonWallet.asSlice().empty(), "Failed to calculate contract jetton wallet address");
+
+        // Calculate wallet address safely
+        let recipientJettonWalletAddress = calculateJettonWalletAddress(
+            sender(),
+            self.jettonRoot,
+            self.jettonWalletCode,
+        );
+        require(!recipientJettonWalletAddress.asSlice().empty(), "Failed to calculate jetton wallet address");
+
+        // Build token transfer payload
+        let payload = beginCell()
+            .storeUint(0xf8a7ea5, 32) // token_transfer op code
+            .storeUint(0, 64) // query_id
+            .storeCoins(task.rewardPerUser) // amount as coins (not uint64)
+            .storeAddress(recipientJettonWalletAddress) // destination: recipient's jetton wallet
+            .storeAddress(sender()) // response_destination: recipient's main wallet
+            .storeCoins(0) // forward_ton_amount
+            .storeMaybeRef(null) // forward_payload (as maybe)
+            .endCell();
+
+        // Send token transfer message
+        send(SendParameters {
+            to: contractJettonWallet,
+            value: 50000000, // ~0.01 TON for gas
+            bounce: true, // should be true for wallets
+            mode: 64,
+            body: payload,
+        });
+
+        // Update state
+        self.pools.set(taskId, pool - task.rewardPerUser);
+        task.claimed.set(sender(), true);
+        task.currentClaims += 1;
+        self.tasks.set(taskId, task);
+    }
+
+    get fun get_all_task_ids(): Cell {
+        let taskCount = 0;
+        let builder = beginCell();
+
+        // More efficient iteration without debug dumps
+        foreach (taskId, _ in self.tasks) {
+            if (taskCount < 255) { // Prevent cell overflow
+                builder = builder.storeUint(taskId, 32);
+                taskCount += 1;
+            } else {
+                return beginCell().endCell();
+            }
         }
+
+        return beginCell()
+            .storeUint(taskCount, 8) // Store count as first byte
+            .storeBuilder(builder) // Store all IDs
+            .endCell();
     }
-    
-    // Store the count at the beginning
-    return beginCell().storeUint(taskCount, 8).storeBuilder(builder).endCell();
-}
 
-// Method to get detailed info for a specific task
-get fun get_task_info(taskId: Int): Cell {
-    require(self.tasks.get(taskId) != null , "Task not found");
-    
-    let task = self.tasks.get(taskId)!!;
-    let poolAmount = 0;
-    
-    if (self.pools.get(taskId) != null) {
-        poolAmount = self.pools.get(taskId)!!;
+    // Method to get detailed info for a specific task
+    get fun get_task_info(taskId: Int): Cell {
+        require(self.tasks.exists(taskId), "Task not found");
+        let task = self.tasks.get(taskId)!!;
+        let pool = self.pools.get(taskId)!!;
+
+        return beginCell()
+            .storeUint(taskId, 32)
+            .storeUint(task.code, 64)
+            .storeAddress(task.creator)
+            .storeUint(task.deadline, 64)
+            .storeUint(task.maxClaims, 32)
+            .storeUint(task.currentClaims, 32)
+            .storeCoins(task.rewardPerUser)
+            .storeCoins(pool)
+            .endCell();
     }
-    
-    return beginCell()
-        .storeUint(taskId, 32)      // Task ID
-        .storeUint(task.code, 64)   // Verification code
-        .storeAddress(task.creator)   // Owner address
-        .storeUint(task.deadline, 64) // Deadline timestamp
-        .storeUint(task.maxClaims, 16) // Maximum claims
-        .storeUint(task.currentClaims, 16) // Current claim count
-        .storeCoins(task.rewardPerUser) // Reward per user
-        .storeCoins(poolAmount)     // Current pool amount
-        .endCell();
-}
-
-
 
     /// View if a user has claimed a task
 
-   get fun has_claimed(taskId: Int, user: Address): Bool {
-    let task = self.tasks.get(taskId);
-    if (task != null) {
-        return task!!.claimed.get(user) != null;
+    get fun has_claimed(taskId: Int, user: Address): Bool {
+        let task = self.tasks.get(taskId);
+        if (task != null) {
+            return task!!.claimed.get(user) != null;
+        }
+        return false;
     }
-    return false;
-}
 
-get fun all_tasks(): map<Int as uint64, Task> {
-    return self.tasks;
-}
+    get fun all_tasks(): map<Int as uint64, Task> {
+        return self.tasks;
+    }
+
+    get fun debug_state(): map<Int as uint64, Int as uint64> {
+        let result: map<Int as uint64, Int as uint64> = emptyMap();
+        let taskCount_: Int = 0;
+
+        // Count tasks by manual iteration
+        foreach (_, _ in self.tasks) {
+            taskCount_ += 1;
+        }
+
+        // Store results
+        result.set(0, self.taskCounter); // Last used ID
+        result.set(1, taskCount_); // Actual task count
+
+        // Optional: Sample first 3 tasks' claim counts
+        let i = 0;
+        foreach (taskId, task in self.tasks) {
+            if (i >= 3) {
+                return emptyMap();
+            }
+            result.set(2 + i, task.currentClaims);
+            i += 1;
+        }
+
+        return result;
+    }
+
+    get fun debug_get_task_struct(id: Int): Task {
+        let task = self.tasks.get(id)!!;
+        return Task {
+            code: task.code,
+            rewardPerUser: task.rewardPerUser,
+            maxClaims: task.maxClaims,
+            creator: task.creator,
+            deadline: task.deadline,
+            currentClaims: task.currentClaims,
+            claimed: task.claimed,
+        };
+    }
 
     /// View the USDT Jetton root address
 
@@ -449,23 +339,29 @@ get fun all_tasks(): map<Int as uint64, Task> {
     }
 }
 
-
 message CreateTaskMsg {
-  opCode:    Int as uint32;    // 0xCAFEBABE
-  code:      Int as uint64;    // task ID as number instead of string
-  reward:    Int as uint64;    // rewardPerUser
-  maxClaims: Int as uint32;    // maxClaims
-  deadline:  Int as uint32;    // deadlineHours
+    opCode: Int as uint32; // 0xCAFEBABE
+    code: Int as uint64; // task ID as number instead of string
+    rewardPerUser: Int as uint64; // rewardPerUser
+    maxClaims: Int as uint32; // maxClaims
+    deadline: Int as uint32; // deadlineHours
 }
 
 message ClaimTaskMsg {
-  opCode: Int as uint32;    // Custom op code for claim operation
-  taskId: Int as uint32;    // Task ID to claim
-  codeInput: Int as uint64; // Code input for verification
+    opCode: Int as uint32; // Custom op code for claim operation
+    taskId: Int as uint32; // Task ID to claim
+    codeInput: Int as uint64; // Code input for verification
 }
-
 
 message TONTransferWithPayload {
     queryId: Int as uint64;
     forwardPayload: Cell;
 }
+
+// message CreateTask {
+//     opCode: Int as uint32;    // 0xCAFEBABE
+//     code: Int as uint64;      // Task identifier
+//     rewardPerUser: Int as uint64;
+//     maxClaims: Int as uint32;
+//     deadlineHours: Int as uint32;
+// }
