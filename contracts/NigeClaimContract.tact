@@ -1,7 +1,6 @@
 import "./messages.tact";
 import "@stdlib/deploy";
 
-
 const OP_CREATE_TASK: Int = 0xCAFEBABE;
 const OP_CLAIM_TASK: Int = 0x42a0fb6d;
 // const JettonTransferInternalOpcode: Int = 0x178d4519;
@@ -37,6 +36,7 @@ contract NigeClaimContract with Deployable {
     tasks: map<Int as uint64, Task>;
     pools: map<Int as uint64, Int as uint64>;
     taskCounter: Int as uint64;
+    contractJettonWallet: Address;
 
     deposits: map<Address, Int as coins>;
 
@@ -51,6 +51,11 @@ contract NigeClaimContract with Deployable {
         self.tasks = emptyMap();
         self.pools = emptyMap();
         self.deposits = emptyMap();
+        self.contractJettonWallet = calculateJettonWalletAddress(
+    myAddress(),
+    jettonRootParam,
+    jettonWalletCode
+);
     }
 
     // Phase 1: Accept token deposits
@@ -176,70 +181,128 @@ contract NigeClaimContract with Deployable {
     }
 
     fun new_claim(taskId: Int, codeInput: Int) {
-        // Check if task exists before force unwrapping
+        // Get task once and store in variable to avoid multiple map lookups
+        let task = self.tasks.get(taskId);
+        require(task != null, "Task not found");
+        let taskData = task!!;
 
-        // dump(self.tasks);
+        // Get pool once and store in variable
+        let pool = self.pools.get(taskId);
+        require(pool != null, "Pool not found for task");
+        let poolAmount = pool!!;
 
-        require(self.tasks.get(taskId) != null, "Task not found");
-        let task = self.tasks.get(taskId)!!;
+        // Do quick checks first (fail fast)
+        require(taskData.code == codeInput, "Invalid code");
+        require(taskData.claimed.get(sender()) != true, "Already claimed");
+        require(now() < taskData.deadline, "Expired");
+        require(taskData.currentClaims < taskData.maxClaims, "Claim limit reached");
+        require(poolAmount >= taskData.rewardPerUser, "Pool emptied");
 
-        // Check if pool exists before force unwrapping
-        require(self.pools.get(taskId) != null, "Pool not found for task");
-        let pool = self.pools.get(taskId)!!;
+        // Pre-calculate jetton wallet address (store in contract state if possible)
+        let contractJettonWallet = self.contractJettonWallet;
 
-        // Standard validations
-        require(now() < task.deadline, "Expired");
-        require(task.claimed.get(sender()) != true, "Already claimed");
-        require(task.currentClaims < task.maxClaims, "Claim limit reached");
-        require(task.code == codeInput, "Invalid code");
-        require(pool >= task.rewardPerUser, "Pool emptied");
+        // Create transfer payload
+        let transferPayload = JettonTransfer {
+            queryId: 0,
+            amount: taskData.rewardPerUser,
+            destination: sender(),
+            responseDestination: myAddress(),
+            customPayload: null,
+            forwardTonAmount: ton("0.01"),
+            forwardPayload: emptySlice(),
+        }.toCell();
 
-        // Check jetton-related fields before using them
-        require(!self.jettonRoot.asSlice().empty(), "Jetton root not set");
-        require(!self.jettonWalletCode.asSlice().empty(), "Jetton wallet code not set");
-
-        let contractJettonWallet = calculateJettonWalletAddress(
-            myAddress(), // Contract's address
-            self.jettonRoot,
-            self.jettonWalletCode,
-        );
-
-        require(!contractJettonWallet.asSlice().empty(), "Failed to calculate contract jetton wallet address");
-
-        // Calculate wallet address safely
-        let recipientJettonWalletAddress = calculateJettonWalletAddress(
-            sender(),
-            self.jettonRoot,
-            self.jettonWalletCode,
-        );
-        require(!recipientJettonWalletAddress.asSlice().empty(), "Failed to calculate jetton wallet address");
-
-        // Build token transfer payload
-        let payload = beginCell()
-            .storeUint(0xf8a7ea5, 32) // token_transfer op code
-            .storeUint(0, 64) // query_id
-            .storeCoins(task.rewardPerUser) // amount as coins (not uint64)
-            .storeAddress(recipientJettonWalletAddress) // destination: recipient's jetton wallet
-            .storeAddress(sender()) // response_destination: recipient's main wallet
-            .storeCoins(0) // forward_ton_amount
-            .storeMaybeRef(null) // forward_payload (as maybe)
-            .endCell();
-
-        // Send token transfer message
+        // Send the transfer with MORE gas
         send(SendParameters {
             to: contractJettonWallet,
-            value: 50000000, // ~0.01 TON for gas
-            bounce: true, // should be true for wallets
-            mode: 64,
-            body: payload,
+            value: ton("0.5"), // Increased gas
+            bounce: true,
+            mode: 0, // Changed from SendPayGasSeparately
+            body: transferPayload,
         });
 
-        // Update state
-        self.pools.set(taskId, pool - task.rewardPerUser);
-        task.claimed.set(sender(), true);
-        task.currentClaims += 1;
-        self.tasks.set(taskId, task);
+        // Update state efficiently - minimize map operations
+        self.pools.set(taskId, poolAmount - taskData.rewardPerUser);
+        taskData.claimed.set(sender(), true);
+        taskData.currentClaims += 1;
+        self.tasks.set(taskId, taskData);
     }
+
+    // fun new_claim(taskId: Int, codeInput: Int) {
+    //     // Check if task exists before force unwrapping
+
+    //     // dump(self.tasks);
+
+    //     require(self.tasks.get(taskId) != null, "Task not found");
+    //     let task = self.tasks.get(taskId)!!;
+
+    //     // Check if pool exists before force unwrapping
+    //     require(self.pools.get(taskId) != null, "Pool not found for task");
+    //     let pool = self.pools.get(taskId)!!;
+
+    //     // Standard validations
+    //     require(now() < task.deadline, "Expired");
+    //     require(task.claimed.get(sender()) != true, "Already claimed");
+    //     require(task.currentClaims < task.maxClaims, "Claim limit reached");
+    //     require(task.code == codeInput, "Invalid code");
+    //     require(pool >= task.rewardPerUser, "Pool emptied");
+
+    //     // Check jetton-related fields before using them
+    //     require(!self.jettonRoot.asSlice().empty(), "Jetton root not set");
+    //     require(!self.jettonWalletCode.asSlice().empty(), "Jetton wallet code not set");
+
+    //     let contractJettonWallet = calculateJettonWalletAddress(
+    //         myAddress(), // Contract's address
+    //         self.jettonRoot,
+    //         self.jettonWalletCode,
+    //     );
+
+    //     require(!contractJettonWallet.asSlice().empty(), "Failed to calculate contract jetton wallet address");
+
+    //     // Calculate wallet address safely
+    //     // let recipientJettonWalletAddress = calculateJettonWalletAddress(
+    //     //     sender(),
+    //     //     self.jettonRoot,
+    //     //     self.jettonWalletCode,
+    //     // );
+    //     // require(!recipientJettonWalletAddress.asSlice().empty(), "Failed to calculate jetton wallet address");
+
+    //     // // Build token transfer payload
+    //     // let payload = beginCell()
+    //     //     .storeUint(0x178d4519, 32) // token_transfer op code
+    //     //     .storeUint(0, 64) // query_id
+    //     //     .storeCoins(task.rewardPerUser) // amount as coins (not uint64)
+    //     //     .storeAddress(recipientJettonWalletAddress) // destination: recipient's jetton wallet
+    //     //     .storeAddress(sender()) // response_destination: recipient's main wallet
+    //     //     .storeCoins(0) // forward_ton_amount
+    //     //     .storeMaybeRef(null) // forward_payload (as maybe)
+    //     //     .endCell();
+
+    //     let new_payload = JettonTransfer {
+    //         queryId: 0,
+    //         amount: task.rewardPerUser,
+    //         destination: sender(),
+    //         responseDestination: myAddress(),
+    //         customPayload: null,
+    //         forwardTonAmount: ton("0.01"),
+    //         forwardPayload: emptySlice(),
+    //     }.toCell();
+
+    //     // Send token transfer message
+    //     send(SendParameters {
+    //         to: contractJettonWallet,
+    //         value: ton("0.1"),
+    //         bounce: true, // should be true for wallets
+    //         mode: 0,
+    //         body: new_payload,
+    //     });
+
+    //     // Update state
+    //     self.pools.set(taskId, pool - task.rewardPerUser);
+    //     task.claimed.set(sender(), true);
+    //     task.currentClaims += 1;
+    //     self.tasks.set(taskId, task);
+    // }
 
     get fun get_all_task_ids(): Cell {
         let taskCount = 0;
