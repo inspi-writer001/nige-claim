@@ -134,299 +134,299 @@ describe('SimpleCounter', () => {
 
     // ---------------------------------------------🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️-----------------------------------------
 
-    // it('should deposit Jettons ', async () => {
-    //     // 1. Wallet Setup
-    //     const mnemonic =
-    //         'stand window ill evil laugh cricket fantasy finish detail alcohol dune meadow prefer banner rough ball body empty easy lyrics essay fruit slice suit'.split(
-    //             ' ',
-    //         );
-    //     const key = await mnemonicToWalletKey(mnemonic);
-    //     const client = new TonClient({
-    //         endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
-    //         apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
-    //     });
+    it('should deposit Jettons ', async () => {
+        // 1. Wallet Setup
+        const mnemonic =
+            'stand window ill evil laugh cricket fantasy finish detail alcohol dune meadow prefer banner rough ball body empty easy lyrics essay fruit slice suit'.split(
+                ' ',
+            );
+        const key = await mnemonicToWalletKey(mnemonic);
+        const client = new TonClient({
+            endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
+            apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
+        });
 
-    //     const wallet = WalletContractV5R1.create({
-    //         workchain: 0,
-    //         publicKey: key.publicKey,
-    //         walletId: { networkGlobalId: -3 },
-    //     });
-    //     const walletContract = client.open(wallet);
+        const wallet = WalletContractV5R1.create({
+            workchain: 0,
+            publicKey: key.publicKey,
+            walletId: { networkGlobalId: -3 },
+        });
+        const walletContract = client.open(wallet);
 
-    //     // 2. Jetton Setup
-    //     const jettonRootAddress = Address.parse('EQAb_8LdTzsDBWmiyVxdidb8xCMyuTJkNC5Cn2UpMMkHt2qC');
-    //     const res = await client.runMethod(jettonRootAddress, 'get_jetton_data');
-    //     const totalSupply = res.stack.readBigNumber(); // [0] total_supply
-    //     const mintable = res.stack.readBigNumber(); // [1] mintable flag (e.g., -1 or 0)
-    //     const adminCell = res.stack.readCell(); // [2] admin_address (as Cell)
-    //     const contentCell = res.stack.readCell(); // [3] content (Jetton metadata)
-    //     const walletCodeCell = res.stack.readCell();
+        // 2. Jetton Setup
+        const jettonRootAddress = Address.parse('EQAb_8LdTzsDBWmiyVxdidb8xCMyuTJkNC5Cn2UpMMkHt2qC');
+        const res = await client.runMethod(jettonRootAddress, 'get_jetton_data');
+        const totalSupply = res.stack.readBigNumber(); // [0] total_supply
+        const mintable = res.stack.readBigNumber(); // [1] mintable flag (e.g., -1 or 0)
+        const adminCell = res.stack.readCell(); // [2] admin_address (as Cell)
+        const contentCell = res.stack.readCell(); // [3] content (Jetton metadata)
+        const walletCodeCell = res.stack.readCell();
 
-    //     // 3. Get Wallet Addresses
-    //     const userJettonWallet = (
-    //         await client.runMethod(jettonRootAddress, 'get_wallet_address', [
-    //             { type: 'slice', cell: beginCell().storeAddress(walletContract.address).endCell() },
-    //         ])
-    //     ).stack.readAddress();
+        // 3. Get Wallet Addresses
+        const userJettonWallet = (
+            await client.runMethod(jettonRootAddress, 'get_wallet_address', [
+                { type: 'slice', cell: beginCell().storeAddress(walletContract.address).endCell() },
+            ])
+        ).stack.readAddress();
 
-    //     const contract = await SimpleCounter.fromInit(jettonRootAddress, walletCodeCell);
-    //     const contractJettonWallet = (
-    //         await client.runMethod(jettonRootAddress, 'get_wallet_address', [
-    //             { type: 'slice', cell: beginCell().storeAddress(contract.address).endCell() },
-    //         ])
-    //     ).stack.readAddress();
+        const contract = await SimpleCounter.fromInit(jettonRootAddress, walletCodeCell);
+        const contractJettonWallet = (
+            await client.runMethod(jettonRootAddress, 'get_wallet_address', [
+                { type: 'slice', cell: beginCell().storeAddress(contract.address).endCell() },
+            ])
+        ).stack.readAddress();
 
-    //     // 4. Prepare Transactions
-    //     const taskCode = 120;
-    //     const rewardPerUser = toNano('10');
-    //     const maxClaims = 5;
-    //     const totalJettons = rewardPerUser * BigInt(maxClaims);
-    //     const deadlineHours = 3;
+        // 4. Prepare Transactions
+        const taskCode = 120;
+        const rewardPerUser = toNano('10');
+        const maxClaims = 5;
+        const totalJettons = rewardPerUser * BigInt(maxClaims);
+        const deadlineHours = 3;
 
-    //     // A) Jetton Transfer Payload
-    //     const forwardPayload = beginCell()
-    //         .storeUint(taskCode, 64)
-    //         .storeUint(rewardPerUser, 64)
-    //         .storeUint(maxClaims, 32)
-    //         .storeUint(deadlineHours, 32)
-    //         .endCell();
+        // A) Jetton Transfer Payload
+        const forwardPayload = beginCell()
+            .storeUint(taskCode, 64)
+            .storeUint(rewardPerUser, 64)
+            .storeUint(maxClaims, 32)
+            .storeUint(deadlineHours, 32)
+            .endCell();
 
-    //     // B) Jetton Transfer Message
-    //     const jettonTransferBody = beginCell()
-    //         .storeUint(0xf8a7ea5, 32) // transfer op
-    //         .storeUint(0, 64) // query_id
-    //         .storeCoins(totalJettons)
-    //         .storeAddress(contract.address) // destination
-    //         .storeAddress(walletContract.address) // response
-    //         .storeBit(0) // no custom payload
-    //         .storeCoins(toNano('0.05')) // forward amount
-    //         .storeBit(1) // forward payload
-    //         .storeRef(forwardPayload)
-    //         .endCell();
+        // B) Jetton Transfer Message
+        const jettonTransferBody = beginCell()
+            .storeUint(0xf8a7ea5, 32) // transfer op
+            .storeUint(0, 64) // query_id
+            .storeCoins(totalJettons)
+            .storeAddress(contract.address) // destination
+            .storeAddress(walletContract.address) // response
+            .storeBit(0) // no custom payload
+            .storeCoins(toNano('0.05')) // forward amount
+            .storeBit(1) // forward payload
+            .storeRef(forwardPayload)
+            .endCell();
 
-    //     // 5. Send Transactions
-    //     const seqno = await walletContract.getSeqno();
+        // 5. Send Transactions
+        const seqno = await walletContract.getSeqno();
 
-    //     // A) First send Jettons
-    //     await walletContract.sendTransfer({
-    //         seqno,
-    //         secretKey: key.secretKey,
-    //         sendMode: SendMode.PAY_GAS_SEPARATELY,
-    //         messages: [
-    //             internal({
-    //                 to: userJettonWallet,
-    //                 value: toNano('0.15'),
-    //                 body: jettonTransferBody,
-    //             }),
-    //         ],
-    //     });
+        // A) First send Jettons
+        await walletContract.sendTransfer({
+            seqno,
+            secretKey: key.secretKey,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            messages: [
+                internal({
+                    to: userJettonWallet,
+                    value: toNano('0.15'),
+                    body: jettonTransferBody,
+                }),
+            ],
+        });
 
-    //     // B) Then create task (if using separate message)
-    //     // const createTaskMsg = {
-    //     //     $$type: 'CreateTaskMsg' as const,
-    //     //     opCode: BigInt(0xcafebabe),
-    //     //     code: BigInt(taskCode),
-    //     //     rewardPerUser,
-    //     //     maxClaims: BigInt(maxClaims),
-    //     //     deadline: BigInt(deadlineHours),
-    //     // };
+        // B) Then create task (if using separate message)
+        // const createTaskMsg = {
+        //     $$type: 'CreateTaskMsg' as const,
+        //     opCode: BigInt(0xcafebabe),
+        //     code: BigInt(taskCode),
+        //     rewardPerUser,
+        //     maxClaims: BigInt(maxClaims),
+        //     deadline: BigInt(deadlineHours),
+        // };
 
-    //     // await client.open(contract).send(
-    //     //     walletContract.sender(key.secretKey),
-    //     //     {
-    //     //         value: toNano('0.1'),
-    //     //         bounce: false,
-    //     //     },
-    //     //     createTaskMsg,
-    //     // );
+        // await client.open(contract).send(
+        //     walletContract.sender(key.secretKey),
+        //     {
+        //         value: toNano('0.1'),
+        //         bounce: false,
+        //     },
+        //     createTaskMsg,
+        // );
 
-    //     // 6. Verify
-    //     // const taskCount = await client.open(contract).get('taskCounter');
-    //     // console.log(`Created task ${taskCount}`);
-    // }, 40000);
-
-    // --------------------------------------------⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️ ----------------------------------------------------------
-    // it('should create task', async () => {
-    //     // 1. Wallet Setup (unchanged)
-    //     const mnemonic =
-    //         'stand window ill evil laugh cricket fantasy finish detail alcohol dune meadow prefer banner rough ball body empty easy lyrics essay fruit slice suit'.split(
-    //             ' ',
-    //         );
-    //     const key = await mnemonicToWalletKey(mnemonic);
-    //     const client = new TonClient({
-    //         endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
-    //         apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
-    //     });
-
-    //     const wallet = WalletContractV5R1.create({
-    //         workchain: 0,
-    //         publicKey: key.publicKey,
-    //         walletId: { networkGlobalId: -3 },
-    //     });
-    //     const walletContract = client.open(wallet);
-
-    //     // 2. Jetton Setup
-    //     const jettonRootAddress = Address.parse('EQAb_8LdTzsDBWmiyVxdidb8xCMyuTJkNC5Cn2UpMMkHt2qC');
-    //     const jettonData = await client.runMethod(jettonRootAddress, 'get_jetton_data');
-
-    //     const res = await client.runMethod(jettonRootAddress, 'get_jetton_data');
-    //     const totalSupply = res.stack.readBigNumber(); // [0] total_supply
-    //     const mintable = res.stack.readBigNumber(); // [1] mintable flag (e.g., -1 or 0)
-    //     const adminCell = res.stack.readCell(); // [2] admin_address (as Cell)
-    //     const contentCell = res.stack.readCell(); // [3] content (Jetton metadata)
-    //     const walletCodeCell = res.stack.readCell(); // [4] jetton_wallet_code
-    //     // const walletCodeCell = jettonData.stack.readCell();
-
-    //     // 3. Contract Initialization (FIXED)
-    //     const contract = await SimpleCounter.fromInit(jettonRootAddress, walletCodeCell);
-    //     const openedContract = client.open(contract);
-
-    //     // 4. Task Parameters
-    //     const taskCode = 120;
-    //     const rewardPerUser = toNano('10');
-    //     const maxClaims = 4;
-    //     const deadlineHours = 3;
-
-    //     // 5. Create Task Message (FIXED)
-    //     const createTaskMsg = {
-    //         $$type: 'CreateTaskMsg' as const,
-    //         opCode: BigInt(0xcafebabe),
-    //         code: BigInt(taskCode),
-    //         rewardPerUser: rewardPerUser,
-    //         maxClaims: BigInt(maxClaims),
-    //         deadline: BigInt(deadlineHours),
-    //     };
-
-    //     // 6. Send Transaction (FIXED)
-    //     await openedContract.send(
-    //         walletContract.sender(key.secretKey),
-    //         {
-    //             value: toNano('0.15'), // Increased gas
-    //             bounce: false,
-    //         },
-    //         createTaskMsg,
-    //     );
-
-    //     // 7. Verification
-    //     // const taskCount = await openedContract.get('taskCounter');
-    //     // console.log('New task count:', taskCount);
-    // }, 30000);
+        // 6. Verify
+        // const taskCount = await client.open(contract).get('taskCounter');
+        // console.log(`Created task ${taskCount}`);
+    }, 40000);
 
     // --------------------------------------------⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️ ----------------------------------------------------------
+    it('should create task', async () => {
+        // 1. Wallet Setup (unchanged)
+        const mnemonic =
+            'stand window ill evil laugh cricket fantasy finish detail alcohol dune meadow prefer banner rough ball body empty easy lyrics essay fruit slice suit'.split(
+                ' ',
+            );
+        const key = await mnemonicToWalletKey(mnemonic);
+        const client = new TonClient({
+            endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
+            apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
+        });
 
-    // async function fetchAllTasks(client: TonClient, contractAddress: Address) {
-    //     try {
-    //         // Step 1: Get all task IDs
-    //         const taskIdsResult = await client.runMethod(contractAddress, 'get_all_task_ids', []);
-    //         console.log(taskIdsResult.stack);
-    //         const taskCell = taskIdsResult.stack.readCell();
-    //         console.log('Task cell:', taskCell.toString());
+        const wallet = WalletContractV5R1.create({
+            workchain: 0,
+            publicKey: key.publicKey,
+            walletId: { networkGlobalId: -3 },
+        });
+        const walletContract = client.open(wallet);
 
-    //         // Parse the cell - first byte is count, then 32-bit task IDs
-    //         const cs = taskCell.beginParse();
-    //         const taskCount = cs.loadUint(8); // First 8 bits is the count
-    //         console.log(`Found ${taskCount} tasks in the contract`);
+        // 2. Jetton Setup
+        const jettonRootAddress = Address.parse('EQAb_8LdTzsDBWmiyVxdidb8xCMyuTJkNC5Cn2UpMMkHt2qC');
+        const jettonData = await client.runMethod(jettonRootAddress, 'get_jetton_data');
 
-    //         if (taskCount === 0) {
-    //             console.log('No tasks exist in the contract');
-    //             return [];
-    //         }
+        const res = await client.runMethod(jettonRootAddress, 'get_jetton_data');
+        const totalSupply = res.stack.readBigNumber(); // [0] total_supply
+        const mintable = res.stack.readBigNumber(); // [1] mintable flag (e.g., -1 or 0)
+        const adminCell = res.stack.readCell(); // [2] admin_address (as Cell)
+        const contentCell = res.stack.readCell(); // [3] content (Jetton metadata)
+        const walletCodeCell = res.stack.readCell(); // [4] jetton_wallet_code
+        // const walletCodeCell = jettonData.stack.readCell();
 
-    //         // Read all task IDs from the cell slice (not from the stack again)
-    //         const taskIds = [];
-    //         for (let i = 0; i < taskCount; i++) {
-    //             const id = cs.loadUint(32);
-    //             console.log(`Read task ID ${i + 1}:`, id); // Add per-ID logging
-    //             taskIds.push(id);
-    //         }
-    //         console.log('Task IDs:', taskIds);
+        // 3. Contract Initialization (FIXED)
+        const contract = await SimpleCounter.fromInit(jettonRootAddress, walletCodeCell);
+        const openedContract = client.open(contract);
 
-    //         // Step 2: Fetch details for each task
-    //         const taskDetails = [];
-    //         for (const taskId of taskIds) {
-    //             const taskInfoResult = await client.runMethod(contractAddress, 'get_task_info', [
-    //                 { type: 'int', value: BigInt(taskId) },
-    //             ]);
+        // 4. Task Parameters
+        const taskCode = 120;
+        const rewardPerUser = toNano('10');
+        const maxClaims = 4;
+        const deadlineHours = 3;
 
-    //             // Parse the task info from the stack
-    //             console.log('Task info stack:', taskInfoResult.stack); // DEBUG - inspect raw stack
+        // 5. Create Task Message (FIXED)
+        const createTaskMsg = {
+            $$type: 'CreateTaskMsg' as const,
+            opCode: BigInt(0xcafebabe),
+            code: BigInt(taskCode),
+            rewardPerUser: rewardPerUser,
+            maxClaims: BigInt(maxClaims),
+            deadline: BigInt(deadlineHours),
+        };
 
-    //             const stack = taskInfoResult.stack;
-    //             console.log('stack here', stack);
-    //             const taskCell = taskInfoResult.stack.readCell();
-    //             const cs = taskCell.beginParse();
+        // 6. Send Transaction (FIXED)
+        await openedContract.send(
+            walletContract.sender(key.secretKey),
+            {
+                value: toNano('0.15'), // Increased gas
+                bounce: false,
+            },
+            createTaskMsg,
+        );
 
-    //             // Parse according to the contract's store order
-    //             const task = {
-    //                 id: cs.loadUint(32), // taskId
-    //                 code: cs.loadUint(64), // task.code
-    //                 owner: cs.loadAddress(), // task.creator
-    //                 deadline: cs.loadUint(64), // task.deadline
-    //                 maxClaims: cs.loadUint(32), // task.maxClaims
-    //                 currentClaims: cs.loadUint(32), // task.currentClaims
-    //                 rewardPerUser: cs.loadCoins(), // task.rewardPerUser
-    //                 poolAmount: cs.loadCoins(), // pool
-    //             };
-
-    //             console.log('individual task');
-    //             console.log(task);
-
-    //             // Convert timestamps to readable dates
-    //             task.deadline = Number(new Date(task.deadline * 1000).toLocaleString());
-
-    //             // Calculate if task is active
-    //             const now = Math.floor(Date.now() / 1000);
-    //             let isActive = task.deadline > now && task.currentClaims < task.maxClaims;
-
-    //             taskDetails.push(task);
-
-    //             console.log(`\nTask #${task.id} Details:`);
-    //             console.log(`- Verification Code: ${task.code}`);
-    //             console.log(`- Owner: ${task.owner}`);
-    //             console.log(`- Deadline: ${task.deadline} (${task.deadline})`);
-    //             console.log(`- Claims: ${task.currentClaims}/${task.maxClaims}`);
-    //             console.log(`- Reward: ${task.rewardPerUser} nanoTON per user`);
-    //             console.log(`- Pool: ${task.poolAmount} nanoTON remaining`);
-    //             console.log(`- Status: ${isActive ? 'Active' : 'Inactive'}`);
-    //         }
-
-    //         return taskDetails;
-    //     } catch (error) {
-    //         console.error('Error fetching tasks:', error);
-    //         return [];
-    //     }
-    // }
-
-    // // Example usage in a test
-    // it('should fetch and display all tasks', async () => {
-    //     // Setup client
-    //     const client = new TonClient({
-    //         endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
-    //         apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
-    //     });
-
-    //     const contractAddress = Address.parse(contractAddress_);
-
-    //     // Fetch all tasks
-    //     const tasks = await fetchAllTasks(client, contractAddress);
-
-    //     console.log('here now');
-    //     console.log(tasks);
-    //     // Verify if the specific task ID exists
-    //     const taskCode = 1; // The task ID we're trying to claim
-    //     const taskExists = tasks.some((task) => task.id === taskCode);
-
-    //     if (!taskExists) {
-    //         console.log(`Task ID ${taskCode} doesn't exist! You need to create it before claiming.`);
-    //     } else {
-    //         const task = tasks.find((t) => t.id === taskCode);
-    //         console.log(`Found task ID ${taskCode} with verification code ${task?.code}`);
-    //     }
-    // }, 30000);
+        // 7. Verification
+        // const taskCount = await openedContract.get('taskCounter');
+        // console.log('New task count:', taskCount);
+    }, 30000);
 
     // --------------------------------------------⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️ ----------------------------------------------------------
 
-    //  YOU BETTER WORKKKKKKKK 🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️-----------------------------------
+    async function fetchAllTasks(client: TonClient, contractAddress: Address) {
+        try {
+            // Step 1: Get all task IDs
+            const taskIdsResult = await client.runMethod(contractAddress, 'get_all_task_ids', []);
+            console.log(taskIdsResult.stack);
+            const taskCell = taskIdsResult.stack.readCell();
+            console.log('Task cell:', taskCell.toString());
+
+            // Parse the cell - first byte is count, then 32-bit task IDs
+            const cs = taskCell.beginParse();
+            const taskCount = cs.loadUint(8); // First 8 bits is the count
+            console.log(`Found ${taskCount} tasks in the contract`);
+
+            if (taskCount === 0) {
+                console.log('No tasks exist in the contract');
+                return [];
+            }
+
+            // Read all task IDs from the cell slice (not from the stack again)
+            const taskIds = [];
+            for (let i = 0; i < taskCount; i++) {
+                const id = cs.loadUint(32);
+                console.log(`Read task ID ${i + 1}:`, id); // Add per-ID logging
+                taskIds.push(id);
+            }
+            console.log('Task IDs:', taskIds);
+
+            // Step 2: Fetch details for each task
+            const taskDetails = [];
+            for (const taskId of taskIds) {
+                const taskInfoResult = await client.runMethod(contractAddress, 'get_task_info', [
+                    { type: 'int', value: BigInt(taskId) },
+                ]);
+
+                // Parse the task info from the stack
+                console.log('Task info stack:', taskInfoResult.stack); // DEBUG - inspect raw stack
+
+                const stack = taskInfoResult.stack;
+                console.log('stack here', stack);
+                const taskCell = taskInfoResult.stack.readCell();
+                const cs = taskCell.beginParse();
+
+                // Parse according to the contract's store order
+                const task = {
+                    id: cs.loadUint(32), // taskId
+                    code: cs.loadUint(64), // task.code
+                    owner: cs.loadAddress(), // task.creator
+                    deadline: cs.loadUint(64), // task.deadline
+                    maxClaims: cs.loadUint(32), // task.maxClaims
+                    currentClaims: cs.loadUint(32), // task.currentClaims
+                    rewardPerUser: cs.loadCoins(), // task.rewardPerUser
+                    poolAmount: cs.loadCoins(), // pool
+                };
+
+                console.log('individual task');
+                console.log(task);
+
+                // Convert timestamps to readable dates
+                task.deadline = Number(new Date(task.deadline * 1000).toLocaleString());
+
+                // Calculate if task is active
+                const now = Math.floor(Date.now() / 1000);
+                let isActive = task.deadline > now && task.currentClaims < task.maxClaims;
+
+                taskDetails.push(task);
+
+                console.log(`\nTask #${task.id} Details:`);
+                console.log(`- Verification Code: ${task.code}`);
+                console.log(`- Owner: ${task.owner}`);
+                console.log(`- Deadline: ${task.deadline} (${task.deadline})`);
+                console.log(`- Claims: ${task.currentClaims}/${task.maxClaims}`);
+                console.log(`- Reward: ${task.rewardPerUser} nanoTON per user`);
+                console.log(`- Pool: ${task.poolAmount} nanoTON remaining`);
+                console.log(`- Status: ${isActive ? 'Active' : 'Inactive'}`);
+            }
+
+            return taskDetails;
+        } catch (error) {
+            console.error('Error fetching tasks:', error);
+            return [];
+        }
+    }
+
+    // -----------------------🫂🫂🫂🫂🫂🫂🫂🫂🫂 ---------------------------------
+    it('should fetch and display all tasks', async () => {
+        // Setup client
+        const client = new TonClient({
+            endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
+            apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
+        });
+
+        const contractAddress = Address.parse(contractAddress_);
+
+        // Fetch all tasks
+        const tasks = await fetchAllTasks(client, contractAddress);
+
+        console.log('here now');
+        console.log(tasks);
+        // Verify if the specific task ID exists
+        const taskCode = 1; // The task ID we're trying to claim
+        const taskExists = tasks.some((task) => task.id === taskCode);
+
+        if (!taskExists) {
+            console.log(`Task ID ${taskCode} doesn't exist! You need to create it before claiming.`);
+        } else {
+            const task = tasks.find((t) => t.id === taskCode);
+            console.log(`Found task ID ${taskCode} with verification code ${task?.code}`);
+        }
+    }, 30000);
+
+    // --------------------------------------------⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️ ----------------------------------------------------------
+
+    // 🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️-----------------------------------
     it('should claim a task using TON transfer with forwarded payload', async () => {
         // Constants
         const taskCode = 1; // The task ID we've created
@@ -522,180 +522,6 @@ describe('SimpleCounter', () => {
             console.error('Error verifying claim status:', error);
         }
     }, 30000);
-
-    //  -----------------BROOOOO ----------------------------------
-
-    // it('should claim a task using TON transfer with forwarded payload', async () => {
-    //     // Constants
-    //     const taskCode = 3; // The task ID we've created
-    //     const codeInput = 122; // The code we used when creating the task
-    //     const OP_CLAIM_TASK = 0x42a0fb6d; // Replace with your actual operation code
-
-    //     // Setup wallet
-    //     const mnemonic =
-    //         'stand window ill evil laugh cricket fantasy finish detail alcohol dune meadow prefer banner rough ball body empty easy lyrics essay fruit slice suit'.split(
-    //             ' ',
-    //         );
-    //     const key = await mnemonicToWalletKey(mnemonic);
-
-    //     const wallet = WalletContractV5R1.create({
-    //         workchain: 0,
-    //         publicKey: key.publicKey,
-    //         walletId: { networkGlobalId: -3 },
-    //     });
-
-    //     // Setup client
-    //     const client = new TonClient({
-    //         endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
-    //         apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
-    //     });
-
-    //     const contractAddress = Address.parse(contractAddress_);
-    //     const walletContract = client.open(wallet);
-
-    //     // Check if task already claimed (optional)
-    //     try {
-    //         const hasClaimed = await client.runMethod(contractAddress, 'has_claimed', [
-    //             { type: 'int', value: BigInt(taskCode) },
-    //             { type: 'slice', cell: beginCell().storeAddress(walletContract.address).endCell() },
-    //         ]);
-
-    //         const alreadyClaimed = hasClaimed.stack.readBoolean();
-    //         console.log('User has already claimed:', alreadyClaimed);
-
-    //         if (alreadyClaimed) {
-    //             console.log('Task already claimed, skipping test');
-    //             return;
-    //         }
-    //     } catch (error) {
-    //         console.error('Error checking claim status:', error);
-    //     }
-
-    //     // 2. Prepare the claim message EXACTLY as contract expects
-    //     const claimPayload = beginCell()
-    //         .storeUint(OP_CLAIM_TASK, 32) // Must match contract's OP_CLAIM_TASK
-    //         .storeUint(taskCode, 32) // Task ID
-    //         .storeUint(codeInput, 64) // Verification code
-    //         .endCell();
-
-    //     // 3. Send as internal message with exact structure contract expects
-    //     const msg = internal({
-    //         to: contractAddress,
-    //         value: toNano('0.05'), // Enough gas
-    //         bounce: true,
-    //         body: claimPayload, // Direct payload, no reference cell
-    //     });
-
-    //     // 4. Send the transaction
-    //     const seqno = await walletContract.getSeqno();
-    //     const result = await walletContract.sendTransfer({
-    //         seqno,
-    //         secretKey: key.secretKey,
-    //         sendMode: SendMode.PAY_GAS_SEPARATELY,
-    //         messages: [msg],
-    //     });
-
-    //     console.log('Claim Transaction sent:', result);
-
-    //     // Wait for transaction to complete
-    //     await new Promise((resolve) => setTimeout(resolve, 10000));
-
-    //     // Verify the claim was successful (optional)
-    //     try {
-    //         const hasClaimed = await client.runMethod(contractAddress, 'has_claimed', [
-    //             { type: 'int', value: BigInt(taskCode) },
-    //             { type: 'slice', cell: beginCell().storeAddress(walletContract.address).endCell() },
-    //         ]);
-
-    //         const nowClaimed = hasClaimed.stack.readBoolean();
-    //         console.log('Task now claimed:', nowClaimed);
-    //         expect(nowClaimed).toBe(true);
-    //     } catch (error) {
-    //         console.error('Error verifying claim status:', error);
-    //     }
-    // }, 30000);
-
-    // --------------------------------------------⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️ ----------------------------------------------------------
-
-    // it('should claim a task using TON transfer with forwarded payload', async () => {
-    //     // Prepare new_claim parameters
-    //     const taskCode = 3; // The task ID we've created
-    //     const codeInput = 124; // The code we used when creating the task
-    //     const OP_CLAIM_TASK = 0x42a0fb6d; // Verified from contract code
-
-    //     const mnemonic =
-    //         'stand window ill evil laugh cricket fantasy finish detail alcohol dune meadow prefer banner rough ball body empty easy lyrics essay fruit slice suit'.split(
-    //             ' ',
-    //         );
-    //     const key = await mnemonicToWalletKey(mnemonic);
-
-    //     const wallet = WalletContractV5R1.create({
-    //         workchain: 0,
-    //         publicKey: key.publicKey,
-    //         walletId: { networkGlobalId: -3 },
-    //     });
-
-    //     const client = new TonClient({
-    //         endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
-    //         apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
-    //     });
-
-    //     const contractAddress = Address.parse(contractAddress_);
-    //     const walletContract = client.open(wallet);
-
-    //     try {
-    //         const hasClaimed = await client.runMethod(contractAddress, 'has_claimed', [
-    //             { type: 'int', value: BigInt(taskCode) },
-    //             { type: 'slice', cell: beginCell().storeAddress(walletContract.address).endCell() },
-    //         ]);
-
-    //         const alreadyClaimed = hasClaimed.stack.readBoolean();
-    //         console.log('User has already claimed:', alreadyClaimed);
-
-    //         if (alreadyClaimed) {
-    //             console.log('Task already claimed, skipping test');
-    //             return;
-    //         }
-    //     } catch (error) {
-    //         console.error('Error checking claim status:', error);
-    //     }
-
-    //     // Create a claim payload cell (similar pattern to task creation)
-    //     const claimPayload = beginCell()
-    //         .storeUint(OP_CLAIM_TASK, 32) // Operation code for claim task
-    //         .storeUint(taskCode, 32) // Task ID
-    //         .storeUint(codeInput, 64) // Code for verification
-    //         .endCell();
-
-    //     // Create TON transfer with payload
-    //     const tonTransferBody = beginCell()
-    //         .storeUint(0, 32) // Simple TON transfer op code
-    //         .storeUint(0, 64) // Query ID
-    //         .storeRef(claimPayload) // Store the claim payload in a cell reference
-    //         .endCell();
-
-    //     // Send the message
-    //     const msg = internal({
-    //         to: contractAddress,
-    //         value: toNano('0.1'), // Gas for processing
-    //         bounce: true,
-    //         body: tonTransferBody,
-    //     });
-
-    //     // Get wallet seqno and send transaction
-    //     const seqno = await walletContract.getSeqno();
-    //     const result = await walletContract.sendTransfer({
-    //         seqno,
-    //         secretKey: key.secretKey,
-    //         sendMode: SendMode.PAY_GAS_SEPARATELY,
-    //         messages: [msg],
-    //     });
-
-    //     console.log('Claim Transaction sent:', result);
-
-    //     // Wait for transaction to complete
-    //     await new Promise((resolve) => setTimeout(resolve, 10000));
-    // }, 30000);
 
     // --------------------------------------------⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️ ----------------------------------------------------------
 
@@ -921,148 +747,6 @@ describe('SimpleCounter', () => {
     //     expect(hasClaimed).toBe(true);
     // }, 15000);
 });
-
-// it('should hhhhh claim a task using new_claim', async () => {
-//     // Prepare new_claim parameters
-//     const taskId = 1; // The task ID we've created
-//     const codeInput = '21614'; // The code we used when creating the task
-
-//     const mnemonic =
-//         'stand window ill evil laugh cricket fantasy finish detail alcohol dune meadow prefer banner rough ball body empty easy lyrics essay fruit slice suit'.split(
-//             ' ',
-//         );
-//     const key = await mnemonicToWalletKey(mnemonic);
-
-//     const wallet = WalletContractV5R1.create({
-//         workchain: 0,
-//         publicKey: key.publicKey,
-//         walletId: { networkGlobalId: -3 },
-//     });
-
-//     const client = new TonClient({
-//         endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
-//         apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
-//     });
-
-//     const contractAddress = Address.parse('EQAb_8LdTzsDBWmiyVxdidb8xCMyuTJkNC5Cn2UpMMkHt2qC');
-
-//     const walletContract = client.open(wallet);
-//     console.log('Wallet Address:', walletContract.address.toString());
-
-//     // Build message for new_claim
-//     // For TON SDK, we need to use beginCell() and properly encode parameters
-//     const body = beginCell()
-//         .storeUint(0, 32) // Default function ID for calling method
-//         .storeStringTail('new_claim') // Method name
-//         .storeUint(taskId, 32) // Task ID
-//         .storeRef(beginCell().storeStringTail(codeInput).endCell()) // Store code input as a ref cell with storeStringTail
-//         .endCell();
-
-//     // Get wallet seqno
-//     const seqno = await walletContract.getSeqno();
-
-//     // Create message to contract
-//     const msg = internal({
-//         to: contractAddress,
-//         value: toNano('0.05'), // Enough TON for gas
-//         bounce: true,
-//         body: body,
-//     });
-
-//     // Send transaction
-//     const result = await walletContract.sendTransfer({
-//         seqno,
-//         secretKey: key.secretKey,
-//         sendMode: SendMode.PAY_GAS_SEPARATELY | SendMode.IGNORE_ERRORS,
-//         messages: [msg],
-//     });
-
-//     console.log('Claim Transaction sent:', result);
-
-//     // Wait for transaction to complete
-//     await new Promise((resolve) => setTimeout(resolve, 10000));
-// }, 30000);
-
-// -------------------------------------------------------------------------------------------⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️-------------------------------------------------
-
-// it('should wwwwwwwww claim a task using new_claim', async () => {
-//     // Prepare new_claim parameters
-//     const taskCode = 1; // The task ID we've created
-//     const codeInput = 120; // The code we used when creating the task
-
-//     const mnemonic =
-//         'stand window ill evil laugh cricket fantasy finish detail alcohol dune meadow prefer banner rough ball body empty easy lyrics essay fruit slice suit'.split(
-//             ' ',
-//         );
-//     const key = await mnemonicToWalletKey(mnemonic);
-
-//     const wallet = WalletContractV5R1.create({
-//         workchain: 0,
-//         publicKey: key.publicKey,
-//         walletId: { networkGlobalId: -3 },
-//     });
-
-//     const client = new TonClient({
-//         endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
-//         apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
-//     });
-
-// const contractAddress = Address.parse(contractAddress_);
-
-//     const walletContract = client.open(wallet);
-//     console.log('Wallet Address:', walletContract.address.toString());
-
-//     try {
-//         const hasClaimed = await client.runMethod(contractAddress, 'has_claimed', [
-//             { type: 'int', value: BigInt(taskCode) },
-//             { type: 'slice', cell: beginCell().storeAddress(walletContract.address).endCell() },
-//         ]);
-
-//         const alreadyClaimed = hasClaimed.stack.readBoolean();
-//         console.log('User has already claimed:', alreadyClaimed);
-
-//         if (alreadyClaimed) {
-//             console.log('Task already claimed, skipping test');
-//             return;
-//         }
-//     } catch (error) {
-//         console.error('Error checking claim status:', error);
-//         // Continue anyway, as the error might be due to the task not existing yet
-//     }
-
-//     // Build message for new_claim with the right ABI structure
-//     // For external method calls, we typically use op + function_id approach
-
-//     const messageBody = beginCell()
-//         .storeUint(OP_CLAIM_TASK, 32) // Operation code
-//         .storeUint(taskCode, 32) // Task ID
-//         .storeUint(codeInput, 64) // Code for verification
-//         .endCell();
-
-//     const msg = internal({
-//         to: contractAddress,
-//         value: toNano('0.1'), // Increased value to ensure enough gas
-//         bounce: true,
-//         body: messageBody,
-//     });
-//     // Get wallet seqno
-//     const seqno = await walletContract.getSeqno();
-
-//     // Send transaction
-//     const result = await walletContract.sendTransfer({
-//         seqno,
-//         secretKey: key.secretKey,
-//         sendMode: SendMode.PAY_GAS_SEPARATELY, // Only this mode, don't ignore errors
-//         messages: [msg],
-//     });
-
-//     console.log('Claim Transaction sent:', result);
-
-//     // Wait for transaction to complete
-//     await new Promise((resolve) => setTimeout(resolve, 10000));
-// }, 30000);
-
-//  ------------------------------------------------------------------------------⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️----------------------------------------------------------------------------------
 
 type Task = {
     code: bigint;
