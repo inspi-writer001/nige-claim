@@ -52,11 +52,13 @@ contract NigeClaimContract with Deployable {
         self.pools = emptyMap();
         self.deposits = emptyMap();
         self.contractJettonWallet = calculateJettonWalletAddress(
-    myAddress(),
-    jettonRootParam,
-    jettonWalletCode
-);
+            myAddress(),
+            jettonRootParam,
+            jettonWalletCode,
+        );
     }
+
+    // getContract()
 
     // Phase 1: Accept token deposits
     receive(msg: JettonNotification) {
@@ -129,57 +131,6 @@ contract NigeClaimContract with Deployable {
         self.new_claim(msg.taskId, msg.codeInput);
     }
 
-    receive(msg: Slice) {
-        // If there's no data, just accept the TON
-
-        if (msg.bits() == 0) {
-            return;
-        }
-
-        // Check if we have enough bits for the operation code
-        if (msg.bits() >= 32) {
-            let op = msg.loadUint(32);
-
-            // Handle simple TON transfer (op code 0)
-            if (op == 0) {
-                let queryId = msg.loadUint(64);
-
-                // Check if there's a reference cell with the actual operation
-                if (msg.refs() > 0) {
-                    let payloadCell = msg.loadRef();
-                    let payloadSlice = payloadCell.beginParse();
-
-                    if (payloadSlice.bits() >= 32) {
-                        let payloadOp = payloadSlice.loadUint(32);
-
-                        // Handle claim task operation in payload
-                        if (payloadOp == OP_CLAIM_TASK) {
-                            if (payloadSlice.bits() >= 32 + 64) {
-                                let taskId = payloadSlice.loadUint(32);
-                                let codeInput = payloadSlice.loadUint(64);
-                                self.new_claim(taskId, codeInput);
-                                return;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Direct claim task operation (no nesting)
-            if (op == OP_CLAIM_TASK) {
-                if (msg.bits() >= 32 + 64) {
-                    let taskId = msg.loadUint(32);
-                    let codeInput = msg.loadUint(64);
-                    self.new_claim(taskId, codeInput);
-                    return;
-                }
-            }
-        }
-
-        // If we reach here and can't process the message, throw an error
-        throw(132); // Error code for invalid message format
-    }
-
     fun new_claim(taskId: Int, codeInput: Int) {
         // Get task once and store in variable to avoid multiple map lookups
         let task = self.tasks.get(taskId);
@@ -203,21 +154,21 @@ contract NigeClaimContract with Deployable {
 
         // Create transfer payload
         let transferPayload = JettonTransfer {
-            queryId: 0,
+            queryId: 42,
             amount: taskData.rewardPerUser,
             destination: sender(),
-            responseDestination: myAddress(),
+            responseDestination: sender(),
             customPayload: null,
-            forwardTonAmount: ton("0.01"),
-            forwardPayload: emptySlice(),
+            forwardTonAmount: 1,
+            forwardPayload: rawSlice("F"),
         }.toCell();
 
         // Send the transfer with MORE gas
         send(SendParameters {
             to: contractJettonWallet,
-            value: ton("0.5"), // Increased gas
+            value: ton("0.05"), // Increased gas
             bounce: true,
-            mode: 0, // Changed from SendPayGasSeparately
+            mode: SendRemainingValue, // Changed from SendPayGasSeparately
             body: transferPayload,
         });
 
@@ -227,82 +178,6 @@ contract NigeClaimContract with Deployable {
         taskData.currentClaims += 1;
         self.tasks.set(taskId, taskData);
     }
-
-    // fun new_claim(taskId: Int, codeInput: Int) {
-    //     // Check if task exists before force unwrapping
-
-    //     // dump(self.tasks);
-
-    //     require(self.tasks.get(taskId) != null, "Task not found");
-    //     let task = self.tasks.get(taskId)!!;
-
-    //     // Check if pool exists before force unwrapping
-    //     require(self.pools.get(taskId) != null, "Pool not found for task");
-    //     let pool = self.pools.get(taskId)!!;
-
-    //     // Standard validations
-    //     require(now() < task.deadline, "Expired");
-    //     require(task.claimed.get(sender()) != true, "Already claimed");
-    //     require(task.currentClaims < task.maxClaims, "Claim limit reached");
-    //     require(task.code == codeInput, "Invalid code");
-    //     require(pool >= task.rewardPerUser, "Pool emptied");
-
-    //     // Check jetton-related fields before using them
-    //     require(!self.jettonRoot.asSlice().empty(), "Jetton root not set");
-    //     require(!self.jettonWalletCode.asSlice().empty(), "Jetton wallet code not set");
-
-    //     let contractJettonWallet = calculateJettonWalletAddress(
-    //         myAddress(), // Contract's address
-    //         self.jettonRoot,
-    //         self.jettonWalletCode,
-    //     );
-
-    //     require(!contractJettonWallet.asSlice().empty(), "Failed to calculate contract jetton wallet address");
-
-    //     // Calculate wallet address safely
-    //     // let recipientJettonWalletAddress = calculateJettonWalletAddress(
-    //     //     sender(),
-    //     //     self.jettonRoot,
-    //     //     self.jettonWalletCode,
-    //     // );
-    //     // require(!recipientJettonWalletAddress.asSlice().empty(), "Failed to calculate jetton wallet address");
-
-    //     // // Build token transfer payload
-    //     // let payload = beginCell()
-    //     //     .storeUint(0x178d4519, 32) // token_transfer op code
-    //     //     .storeUint(0, 64) // query_id
-    //     //     .storeCoins(task.rewardPerUser) // amount as coins (not uint64)
-    //     //     .storeAddress(recipientJettonWalletAddress) // destination: recipient's jetton wallet
-    //     //     .storeAddress(sender()) // response_destination: recipient's main wallet
-    //     //     .storeCoins(0) // forward_ton_amount
-    //     //     .storeMaybeRef(null) // forward_payload (as maybe)
-    //     //     .endCell();
-
-    //     let new_payload = JettonTransfer {
-    //         queryId: 0,
-    //         amount: task.rewardPerUser,
-    //         destination: sender(),
-    //         responseDestination: myAddress(),
-    //         customPayload: null,
-    //         forwardTonAmount: ton("0.01"),
-    //         forwardPayload: emptySlice(),
-    //     }.toCell();
-
-    //     // Send token transfer message
-    //     send(SendParameters {
-    //         to: contractJettonWallet,
-    //         value: ton("0.1"),
-    //         bounce: true, // should be true for wallets
-    //         mode: 0,
-    //         body: new_payload,
-    //     });
-
-    //     // Update state
-    //     self.pools.set(taskId, pool - task.rewardPerUser);
-    //     task.claimed.set(sender(), true);
-    //     task.currentClaims += 1;
-    //     self.tasks.set(taskId, task);
-    // }
 
     get fun get_all_task_ids(): Cell {
         let taskCount = 0;
@@ -427,4 +302,55 @@ message TONTransferWithPayload {
 //     rewardPerUser: Int as uint64;
 //     maxClaims: Int as uint32;
 //     deadlineHours: Int as uint32;
+// }
+
+//  receive(msg: Slice) {
+//         // If there's no data, just accept the TON
+
+//         if (msg.bits() == 0) {
+//             return;
+//         }
+
+//         // Check if we have enough bits for the operation code
+//         if (msg.bits() >= 32) {
+//             let op = msg.loadUint(32);
+
+//             // Handle simple TON transfer (op code 0)
+//             if (op == 0) {
+//                 let queryId = msg.loadUint(64);
+
+//                 // Check if there's a reference cell with the actual operation
+//                 if (msg.refs() > 0) {
+//                     let payloadCell = msg.loadRef();
+//                     let payloadSlice = payloadCell.beginParse();
+
+//                     if (payloadSlice.bits() >= 32) {
+//                         let payloadOp = payloadSlice.loadUint(32);
+
+//                         // Handle claim task operation in payload
+//                         if (payloadOp == OP_CLAIM_TASK) {
+//                             if (payloadSlice.bits() >= 32 + 64) {
+//                                 let taskId = payloadSlice.loadUint(32);
+//                                 let codeInput = payloadSlice.loadUint(64);
+//                                 self.new_claim(taskId, codeInput);
+//                                 return;
+//                             }
+//                         }
+//                     }
+//                 }
+//             }
+
+//             // Direct claim task operation (no nesting)
+//         if (op == OP_CLAIM_TASK) {
+//             if (msg.bits() >= 32 + 64) {
+//                 let taskId = msg.loadUint(32);
+//                 let codeInput = msg.loadUint(64);
+//                 self.new_claim(taskId, codeInput);
+//                 return;
+//             }
+//         }
+//     }
+
+//     // If we reach here and can't process the message, throw an error
+//     throw(132); // Error code for invalid message format
 // }
