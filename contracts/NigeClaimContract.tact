@@ -40,7 +40,7 @@ contract NigeClaimContract with Deployable {
 
     deposits: map<Address, Int as coins>;
 
-    // const new_guy = crc32("hello");
+   
     // Initializer: store Jetton root
     init(jettonRootParam: Address, jettonWalletCode: Cell) {
         // accept();
@@ -58,7 +58,7 @@ contract NigeClaimContract with Deployable {
         );
     }
 
-    // getContract()
+    
 
     // Phase 1: Accept token deposits
     receive(msg: JettonNotification) {
@@ -96,6 +96,7 @@ contract NigeClaimContract with Deployable {
             current_pool >= needed,
             "Insufficient deposit",
         );
+        require(sender == self.owner, "unAuthorized");
 
         // Create task
         let newTask = Task {
@@ -304,53 +305,3 @@ message TONTransferWithPayload {
 //     deadlineHours: Int as uint32;
 // }
 
-//  receive(msg: Slice) {
-//         // If there's no data, just accept the TON
-
-//         if (msg.bits() == 0) {
-//             return;
-//         }
-
-//         // Check if we have enough bits for the operation code
-//         if (msg.bits() >= 32) {
-//             let op = msg.loadUint(32);
-
-//             // Handle simple TON transfer (op code 0)
-//             if (op == 0) {
-//                 let queryId = msg.loadUint(64);
-
-//                 // Check if there's a reference cell with the actual operation
-//                 if (msg.refs() > 0) {
-//                     let payloadCell = msg.loadRef();
-//                     let payloadSlice = payloadCell.beginParse();
-
-//                     if (payloadSlice.bits() >= 32) {
-//                         let payloadOp = payloadSlice.loadUint(32);
-
-//                         // Handle claim task operation in payload
-//                         if (payloadOp == OP_CLAIM_TASK) {
-//                             if (payloadSlice.bits() >= 32 + 64) {
-//                                 let taskId = payloadSlice.loadUint(32);
-//                                 let codeInput = payloadSlice.loadUint(64);
-//                                 self.new_claim(taskId, codeInput);
-//                                 return;
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-
-//             // Direct claim task operation (no nesting)
-//         if (op == OP_CLAIM_TASK) {
-//             if (msg.bits() >= 32 + 64) {
-//                 let taskId = msg.loadUint(32);
-//                 let codeInput = msg.loadUint(64);
-//                 self.new_claim(taskId, codeInput);
-//                 return;
-//             }
-//         }
-//     }
-
-//     // If we reach here and can't process the message, throw an error
-//     throw(132); // Error code for invalid message format
-// }

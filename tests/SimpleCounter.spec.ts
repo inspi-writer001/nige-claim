@@ -22,7 +22,7 @@ const OP_CLAIM_TASK = 0x42a0fb6d;
 const DEPLOY_VALUE_TON = '0.1';
 
 describe('SimpleCounter', () => {
-    let contractAddress_ = 'EQC3F0ZdiENG5YDVRQIDL3pp9GmGPYD8Li5YwsraGVqIIPIB';
+    let contractAddress_ = 'EQBDz7aq812lS1pVbjY3Vwru-dQpx88zz6P_DMDBe032002y';
 
     // it('should deploy NigeClaimContract correctly', async () => {
     //     const mnemonic =
@@ -406,7 +406,7 @@ describe('SimpleCounter', () => {
     // 🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️-----------------------------------
     it('should claim a task using TON transfer with forwarded payload', async () => {
         // Constants
-        const taskCode = 1; // The task ID we've created
+        const taskCode = 2; // The task ID we've created
         const codeInput = 120; // The code we used when creating the task
         const OP_CLAIM_TASK = 0x42a0fb6d; // Replace with your actual operation code
 
@@ -474,7 +474,7 @@ describe('SimpleCounter', () => {
         await openedContract.send(
             walletContract.sender(key.secretKey),
             {
-                value: toNano('0.7'), // Enough gas
+                value: toNano('0.07'), // Enough gas
                 bounce: true,
             },
             claimTaskMsg,
