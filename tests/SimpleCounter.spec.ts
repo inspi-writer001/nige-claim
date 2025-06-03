@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
 import {
     Address,
@@ -16,33 +17,40 @@ import { NigeClaimContract as SimpleCounter } from '../wrappers/SimpleCounter';
 import '@ton/test-utils';
 import { JettonWallet, TonClient, WalletContractV4, WalletContractV5R1, fromNano, internal } from '@ton/ton';
 import { mnemonicToWalletKey } from '@ton/crypto';
+import { api_key, mnemonics } from '../secret';
 
 const OP_CREATE_TASK = 0xcafebabe; // 32-bit op code
 const OP_CLAIM_TASK = 0x42a0fb6d;
 const DEPLOY_VALUE_TON = '0.1';
+const networkGlobalId_ = -239;
+// -3 ||
+const networkGlobalId_testnet = -3;
+const rpc = 'https://toncenter.com/api/v2/jsonRPC';
+// 'https://testnet.toncenter.com/api/v2/jsonRPC' ||
+const usdt_address = 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs';
+
+//     'kQAb_8LdTzsDBWmiyVxdidb8xCMyuTJkNC5Cn2UpMMkHt9EI' ||
 
 describe('SimpleCounter', () => {
-    let contractAddress_ = 'EQBDz7aq812lS1pVbjY3Vwru-dQpx88zz6P_DMDBe032002y';
+    let contractAddress_ = 'EQCwwFMHgl33iAhS6zl1Zdx1ukWWu-Vqhu96RsxPXRzqqvzd';
+    // 'EQA91CLnvvL53CpfdisxqHbKDjYo03VmrtOTyCnnbo2YX0Xr' ||
 
     // it('should deploy NigeClaimContract correctly', async () => {
-    //     const mnemonic =
-    //         'stand window ill evil laugh cricket fantasy finish detail alcohol dune meadow prefer banner rough ball body empty easy lyrics essay fruit slice suit'.split(
-    //             ' ',
-    //         );
+    //     const mnemonic = mnemonics.split(' ');
     //     const key = await mnemonicToWalletKey(mnemonic);
 
     //     const client = new TonClient({
-    //         endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
-    //         apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
+    //         endpoint: rpc,
+    //         apiKey: api_key,
     //     });
 
     //     const wallet = WalletContractV5R1.create({
     //         workchain: 0,
     //         publicKey: key.publicKey,
-    //         walletId: { networkGlobalId: -3 },
+    //         walletId: { networkGlobalId: networkGlobalId_ },
     //     });
 
-    //     const jettonRootAddress = Address.parse('EQAb_8LdTzsDBWmiyVxdidb8xCMyuTJkNC5Cn2UpMMkHt2qC');
+    //     const jettonRootAddress = Address.parse(usdt_address);
     //     const walletContract = client.open(wallet);
 
     //     console.log('Wallet Address:', walletContract.address.toString());
@@ -114,14 +122,20 @@ describe('SimpleCounter', () => {
     // --------------------------------------------⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️ ----------------------------------------------------------
 
     // it('should test the get_jetton_root getter', async () => {
-    //     const jettonRootAddress = Address.parse('EQAb_8LdTzsDBWmiyVxdidb8xCMyuTJkNC5Cn2UpMMkHt2qC');
+    //     const jettonRootAddress = Address.parse(usdt_address);
     //     // Test get_jetton_root getter
     //     const client = new TonClient({
-    //         endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
-    //         apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
+    //         endpoint: rpc,
+    //         apiKey: api_key,
     //     });
 
     //     const contractAddress = Address.parse(contractAddress_);
+    //     const walletAddress = Address.parse(
+    //         await client.runMethod(jettonRootAddress, 'get_wallet_address', {
+    //             owner_address: contractAddress,
+    //         }),
+    //     );
+    //     console.log(walletAddress);
     //     const res = await client.runMethod(contractAddress, 'get_jetton_root');
     //     const returnedJettonRoot = res.stack.readAddress();
 
@@ -134,303 +148,292 @@ describe('SimpleCounter', () => {
 
     // ---------------------------------------------🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️-----------------------------------------
 
-    it('should deposit Jettons ', async () => {
-        // 1. Wallet Setup
-        const mnemonic =
-            'stand window ill evil laugh cricket fantasy finish detail alcohol dune meadow prefer banner rough ball body empty easy lyrics essay fruit slice suit'.split(
-                ' ',
-            );
-        const key = await mnemonicToWalletKey(mnemonic);
-        const client = new TonClient({
-            endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
-            apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
-        });
+    // it('should deposit Jettons ', async () => {
+    //     // 1. Wallet Setup
+    //     const mnemonic = mnemonics.split(' ');
+    //     const key = await mnemonicToWalletKey(mnemonic);
+    //     const client = new TonClient({
+    //         endpoint: rpc,
+    //         apiKey: api_key,
+    //     });
 
-        const wallet = WalletContractV5R1.create({
-            workchain: 0,
-            publicKey: key.publicKey,
-            walletId: { networkGlobalId: -3 },
-        });
-        const walletContract = client.open(wallet);
+    //     const wallet = WalletContractV5R1.create({
+    //         workchain: 0,
+    //         publicKey: key.publicKey,
+    //         walletId: { networkGlobalId: networkGlobalId_ },
+    //     });
+    //     const walletContract = client.open(wallet);
 
-        // 2. Jetton Setup
-        const jettonRootAddress = Address.parse('EQAb_8LdTzsDBWmiyVxdidb8xCMyuTJkNC5Cn2UpMMkHt2qC');
-        const res = await client.runMethod(jettonRootAddress, 'get_jetton_data');
-        const totalSupply = res.stack.readBigNumber(); // [0] total_supply
-        const mintable = res.stack.readBigNumber(); // [1] mintable flag (e.g., -1 or 0)
-        const adminCell = res.stack.readCell(); // [2] admin_address (as Cell)
-        const contentCell = res.stack.readCell(); // [3] content (Jetton metadata)
-        const walletCodeCell = res.stack.readCell();
+    //     // 2. Jetton Setup
+    //     const jettonRootAddress = Address.parse(usdt_address);
+    //     const res = await client.runMethod(jettonRootAddress, 'get_jetton_data');
+    //     const totalSupply = res.stack.readBigNumber(); // [0] total_supply
+    //     const mintable = res.stack.readBigNumber(); // [1] mintable flag (e.g., -1 or 0)
+    //     const adminCell = res.stack.readCell(); // [2] admin_address (as Cell)
+    //     const contentCell = res.stack.readCell(); // [3] content (Jetton metadata)
+    //     const walletCodeCell = res.stack.readCell();
 
-        // 3. Get Wallet Addresses
-        const userJettonWallet = (
-            await client.runMethod(jettonRootAddress, 'get_wallet_address', [
-                { type: 'slice', cell: beginCell().storeAddress(walletContract.address).endCell() },
-            ])
-        ).stack.readAddress();
+    //     // 3. Get Wallet Addresses
+    //     const userJettonWallet = (
+    //         await client.runMethod(jettonRootAddress, 'get_wallet_address', [
+    //             { type: 'slice', cell: beginCell().storeAddress(walletContract.address).endCell() },
+    //         ])
+    //     ).stack.readAddress();
 
-        const contract = await SimpleCounter.fromInit(jettonRootAddress, walletCodeCell);
-        const contractJettonWallet = (
-            await client.runMethod(jettonRootAddress, 'get_wallet_address', [
-                { type: 'slice', cell: beginCell().storeAddress(contract.address).endCell() },
-            ])
-        ).stack.readAddress();
+    //     const contract = await SimpleCounter.fromInit(jettonRootAddress, walletCodeCell);
+    //     const contractJettonWallet = (
+    //         await client.runMethod(jettonRootAddress, 'get_wallet_address', [
+    //             { type: 'slice', cell: beginCell().storeAddress(contract.address).endCell() },
+    //         ])
+    //     ).stack.readAddress();
 
-        // 4. Prepare Transactions
-        const taskCode = 120;
-        const rewardPerUser = toNano('10');
-        const maxClaims = 5;
-        const totalJettons = rewardPerUser * BigInt(maxClaims);
-        const deadlineHours = 3;
+    //     // 4. Prepare Transactions
+    //     const taskCode = 120;
+    //     const rewardPerUser = BigInt(10 ** 6 * 0.3);
+    //     const maxClaims = 1;
+    //     const totalJettons = rewardPerUser * BigInt(maxClaims);
+    //     const deadlineHours = 3;
 
-        // A) Jetton Transfer Payload
-        const forwardPayload = beginCell()
-            .storeUint(taskCode, 64)
-            .storeUint(rewardPerUser, 64)
-            .storeUint(maxClaims, 32)
-            .storeUint(deadlineHours, 32)
-            .endCell();
+    //     // A) Jetton Transfer Payload
+    //     const forwardPayload = beginCell()
+    //         .storeUint(taskCode, 64)
+    //         .storeUint(rewardPerUser, 64)
+    //         .storeUint(maxClaims, 32)
+    //         .storeUint(deadlineHours, 32)
+    //         .endCell();
 
-        // B) Jetton Transfer Message
-        const jettonTransferBody = beginCell()
-            .storeUint(0xf8a7ea5, 32) // transfer op
-            .storeUint(0, 64) // query_id
-            .storeCoins(totalJettons)
-            .storeAddress(contract.address) // destination
-            .storeAddress(walletContract.address) // response
-            .storeBit(0) // no custom payload
-            .storeCoins(toNano('0.05')) // forward amount
-            .storeBit(1) // forward payload
-            .storeRef(forwardPayload)
-            .endCell();
+    //     // B) Jetton Transfer Message
+    //     const jettonTransferBody = beginCell()
+    //         .storeUint(0xf8a7ea5, 32) // transfer op
+    //         .storeUint(0, 64) // query_id
+    //         .storeCoins(totalJettons)
+    //         .storeAddress(contract.address) // destination
+    //         .storeAddress(walletContract.address) // response
+    //         .storeBit(0) // no custom payload
+    //         .storeCoins(toNano('0.05')) // forward amount
+    //         .storeBit(1) // forward payload
+    //         .storeRef(forwardPayload)
+    //         .endCell();
 
-        // 5. Send Transactions
-        const seqno = await walletContract.getSeqno();
+    //     // 5. Send Transactions
+    //     const seqno = await walletContract.getSeqno();
 
-        // A) First send Jettons
-        await walletContract.sendTransfer({
-            seqno,
-            secretKey: key.secretKey,
-            sendMode: SendMode.PAY_GAS_SEPARATELY,
-            messages: [
-                internal({
-                    to: userJettonWallet,
-                    value: toNano('0.15'),
-                    body: jettonTransferBody,
-                }),
-            ],
-        });
-    }, 40000);
+    //     // A) First send Jettons
+    //     await walletContract.sendTransfer({
+    //         seqno,
+    //         secretKey: key.secretKey,
+    //         sendMode: SendMode.PAY_GAS_SEPARATELY,
+    //         messages: [
+    //             internal({
+    //                 to: userJettonWallet,
+    //                 value: toNano('0.09'),
+    //                 body: jettonTransferBody,
+    //             }),
+    //         ],
+    //     });
+    // }, 40000);
 
     // --------------------------------------------⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️ ----------------------------------------------------------
-    it('should create task', async () => {
-        // 1. Wallet Setup (unchanged)
-        const mnemonic =
-            'stand window ill evil laugh cricket fantasy finish detail alcohol dune meadow prefer banner rough ball body empty easy lyrics essay fruit slice suit'.split(
-                ' ',
-            );
-        const key = await mnemonicToWalletKey(mnemonic);
-        const client = new TonClient({
-            endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
-            apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
-        });
+    // it('should create task', async () => {
+    //     // 1. Wallet Setup (unchanged)
+    //     const mnemonic = mnemonics.split(' ');
+    //     const key = await mnemonicToWalletKey(mnemonic);
+    //     const client = new TonClient({
+    //         endpoint: rpc,
+    //         apiKey: api_key,
+    //     });
 
-        const wallet = WalletContractV5R1.create({
-            workchain: 0,
-            publicKey: key.publicKey,
-            walletId: { networkGlobalId: -3 },
-        });
-        const walletContract = client.open(wallet);
+    //     const wallet = WalletContractV5R1.create({
+    //         workchain: 0,
+    //         publicKey: key.publicKey,
+    //         walletId: { networkGlobalId: networkGlobalId_ },
+    //     });
+    //     const walletContract = client.open(wallet);
 
-        // 2. Jetton Setup
-        const jettonRootAddress = Address.parse('EQAb_8LdTzsDBWmiyVxdidb8xCMyuTJkNC5Cn2UpMMkHt2qC');
-        const jettonData = await client.runMethod(jettonRootAddress, 'get_jetton_data');
+    //     // 2. Jetton Setup
+    //     const jettonRootAddress = Address.parse(usdt_address);
+    //     const jettonData = await client.runMethod(jettonRootAddress, 'get_jetton_data');
 
-        const res = await client.runMethod(jettonRootAddress, 'get_jetton_data');
-        const totalSupply = res.stack.readBigNumber(); // [0] total_supply
-        const mintable = res.stack.readBigNumber(); // [1] mintable flag (e.g., -1 or 0)
-        const adminCell = res.stack.readCell(); // [2] admin_address (as Cell)
-        const contentCell = res.stack.readCell(); // [3] content (Jetton metadata)
-        const walletCodeCell = res.stack.readCell(); // [4] jetton_wallet_code
-        // const walletCodeCell = jettonData.stack.readCell();
+    //     const res = await client.runMethod(jettonRootAddress, 'get_jetton_data');
+    //     const totalSupply = res.stack.readBigNumber(); // [0] total_supply
+    //     const mintable = res.stack.readBigNumber(); // [1] mintable flag (e.g., -1 or 0)
+    //     const adminCell = res.stack.readCell(); // [2] admin_address (as Cell)
+    //     const contentCell = res.stack.readCell(); // [3] content (Jetton metadata)
+    //     const walletCodeCell = res.stack.readCell(); // [4] jetton_wallet_code
+    //     // const walletCodeCell = jettonData.stack.readCell();
 
-        // 3. Contract Initialization (FIXED)
-        const contract = await SimpleCounter.fromInit(jettonRootAddress, walletCodeCell);
-        const openedContract = client.open(contract);
+    //     // 3. Contract Initialization (FIXED)
+    //     const contract = await SimpleCounter.fromInit(jettonRootAddress, walletCodeCell);
+    //     const openedContract = client.open(contract);
 
-        // 4. Task Parameters
-        const taskCode = 120;
-        const rewardPerUser = toNano('10');
-        const maxClaims = 4;
-        const deadlineHours = 3;
+    //     // 4. Task Parameters
+    //     const taskCode = 120;
+    //     const rewardPerUser = BigInt(1 * 10 ** 6 * 0.2);
+    //     const maxClaims = 1;
+    //     const deadlineHours = 3;
 
-        // 5. Create Task Message (FIXED)
-        const createTaskMsg = {
-            $$type: 'CreateTaskMsg' as const,
-            opCode: BigInt(0xcafebabe),
-            code: BigInt(taskCode),
-            rewardPerUser: rewardPerUser,
-            maxClaims: BigInt(maxClaims),
-            deadline: BigInt(deadlineHours),
-        };
+    //     // 5. Create Task Message (FIXED)
+    //     const createTaskMsg = {
+    //         $$type: 'CreateTaskMsg' as const,
+    //         opCode: BigInt(0xcafebabe),
+    //         code: BigInt(taskCode),
+    //         rewardPerUser: rewardPerUser,
+    //         maxClaims: BigInt(maxClaims),
+    //         deadline: BigInt(deadlineHours),
+    //     };
 
-        // 6. Send Transaction (FIXED)
-        await openedContract.send(
-            walletContract.sender(key.secretKey),
-            {
-                value: toNano('0.15'), // Increased gas
-                bounce: false,
-            },
-            createTaskMsg,
-        );
+    //     console.log(createTaskMsg);
 
-        // 7. Verification
-        // const taskCount = await openedContract.get('taskCounter');
-        // console.log('New task count:', taskCount);
-    }, 30000);
+    //     // 6. Send Transaction (FIXED)
+    //     await openedContract.send(
+    //         walletContract.sender(key.secretKey),
+    //         {
+    //             value: toNano('0.09'), // Increased gas
+    //             bounce: false,
+    //         },
+    //         createTaskMsg,
+    //     );
+    // }, 30000);
 
     // --------------------------------------------⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️ ----------------------------------------------------------
 
-    async function fetchAllTasks(client: TonClient, contractAddress: Address) {
-        try {
-            // Step 1: Get all task IDs
-            const taskIdsResult = await client.runMethod(contractAddress, 'get_all_task_ids', []);
-            console.log(taskIdsResult.stack);
-            const taskCell = taskIdsResult.stack.readCell();
-            console.log('Task cell:', taskCell.toString());
+    // async function fetchAllTasks(client: TonClient, contractAddress: Address) {
+    //     try {
+    //         // Step 1: Get all task IDs
+    //         const taskIdsResult = await client.runMethod(contractAddress, 'get_all_task_ids', []);
+    //         console.log(taskIdsResult.stack);
+    //         const taskCell = taskIdsResult.stack.readCell();
+    //         console.log('Task cell:', taskCell.toString());
 
-            // Parse the cell - first byte is count, then 32-bit task IDs
-            const cs = taskCell.beginParse();
-            const taskCount = cs.loadUint(8); // First 8 bits is the count
-            console.log(`Found ${taskCount} tasks in the contract`);
+    //         // Parse the cell - first byte is count, then 32-bit task IDs
+    //         const cs = taskCell.beginParse();
+    //         const taskCount = cs.loadUint(8); // First 8 bits is the count
+    //         console.log(`Found ${taskCount} tasks in the contract`);
 
-            if (taskCount === 0) {
-                console.log('No tasks exist in the contract');
-                return [];
-            }
+    //         if (taskCount === 0) {
+    //             console.log('No tasks exist in the contract');
+    //             return [];
+    //         }
 
-            // Read all task IDs from the cell slice (not from the stack again)
-            const taskIds = [];
-            for (let i = 0; i < taskCount; i++) {
-                const id = cs.loadUint(32);
-                console.log(`Read task ID ${i + 1}:`, id); // Add per-ID logging
-                taskIds.push(id);
-            }
-            console.log('Task IDs:', taskIds);
+    //         // Read all task IDs from the cell slice (not from the stack again)
+    //         const taskIds = [];
+    //         for (let i = 0; i < taskCount; i++) {
+    //             const id = cs.loadUint(32);
+    //             console.log(`Read task ID ${i + 1}:`, id); // Add per-ID logging
+    //             taskIds.push(id);
+    //         }
+    //         console.log('Task IDs:', taskIds);
 
-            // Step 2: Fetch details for each task
-            const taskDetails = [];
-            for (const taskId of taskIds) {
-                const taskInfoResult = await client.runMethod(contractAddress, 'get_task_info', [
-                    { type: 'int', value: BigInt(taskId) },
-                ]);
+    //         // Step 2: Fetch details for each task
+    //         const taskDetails = [];
+    //         for (const taskId of taskIds) {
+    //             const taskInfoResult = await client.runMethod(contractAddress, 'get_task_info', [
+    //                 { type: 'int', value: BigInt(taskId) },
+    //             ]);
 
-                // Parse the task info from the stack
-                console.log('Task info stack:', taskInfoResult.stack); // DEBUG - inspect raw stack
+    //             // Parse the task info from the stack
+    //             console.log('Task info stack:', taskInfoResult.stack); // DEBUG - inspect raw stack
 
-                const stack = taskInfoResult.stack;
-                console.log('stack here', stack);
-                const taskCell = taskInfoResult.stack.readCell();
-                const cs = taskCell.beginParse();
+    //             const stack = taskInfoResult.stack;
+    //             console.log('stack here', stack);
+    //             const taskCell = taskInfoResult.stack.readCell();
+    //             const cs = taskCell.beginParse();
 
-                // Parse according to the contract's store order
-                const task = {
-                    id: cs.loadUint(32), // taskId
-                    code: cs.loadUint(64), // task.code
-                    owner: cs.loadAddress(), // task.creator
-                    deadline: cs.loadUint(64), // task.deadline
-                    maxClaims: cs.loadUint(32), // task.maxClaims
-                    currentClaims: cs.loadUint(32), // task.currentClaims
-                    rewardPerUser: cs.loadCoins(), // task.rewardPerUser
-                    poolAmount: cs.loadCoins(), // pool
-                };
+    //             // Parse according to the contract's store order
+    //             const task = {
+    //                 id: cs.loadUint(32), // taskId
+    //                 code: cs.loadUint(64), // task.code
+    //                 owner: cs.loadAddress(), // task.creator
+    //                 deadline: cs.loadUint(64), // task.deadline
+    //                 maxClaims: cs.loadUint(32), // task.maxClaims
+    //                 currentClaims: cs.loadUint(32), // task.currentClaims
+    //                 rewardPerUser: cs.loadCoins(), // task.rewardPerUser
+    //                 poolAmount: cs.loadCoins(), // pool
+    //             };
 
-                console.log('individual task');
-                console.log(task);
+    //             console.log('individual task');
+    //             console.log(task);
 
-                // Convert timestamps to readable dates
-                task.deadline = Number(new Date(task.deadline * 1000).toLocaleString());
+    //             // Convert timestamps to readable dates
+    //             task.deadline = Number(new Date(task.deadline * 1000).toLocaleString());
 
-                // Calculate if task is active
-                const now = Math.floor(Date.now() / 1000);
-                let isActive = task.deadline > now && task.currentClaims < task.maxClaims;
+    //             // Calculate if task is active
+    //             const now = Math.floor(Date.now() / 1000);
+    //             let isActive = task.deadline > now && task.currentClaims < task.maxClaims;
 
-                taskDetails.push(task);
+    //             taskDetails.push(task);
 
-                console.log(`\nTask #${task.id} Details:`);
-                console.log(`- Verification Code: ${task.code}`);
-                console.log(`- Owner: ${task.owner}`);
-                console.log(`- Deadline: ${task.deadline} (${task.deadline})`);
-                console.log(`- Claims: ${task.currentClaims}/${task.maxClaims}`);
-                console.log(`- Reward: ${task.rewardPerUser} nanoTON per user`);
-                console.log(`- Pool: ${task.poolAmount} nanoTON remaining`);
-                console.log(`- Status: ${isActive ? 'Active' : 'Inactive'}`);
-            }
+    //             console.log(`\nTask #${task.id} Details:`);
+    //             console.log(`- Verification Code: ${task.code}`);
+    //             console.log(`- Owner: ${task.owner}`);
+    //             console.log(`- Deadline: ${task.deadline} (${task.deadline})`);
+    //             console.log(`- Claims: ${task.currentClaims}/${task.maxClaims}`);
+    //             console.log(`- Reward: ${task.rewardPerUser} nanoTON per user`);
+    //             console.log(`- Pool: ${task.poolAmount} nanoTON remaining`);
+    //             console.log(`- Status: ${isActive ? 'Active' : 'Inactive'}`);
+    //         }
 
-            return taskDetails;
-        } catch (error) {
-            console.error('Error fetching tasks:', error);
-            return [];
-        }
-    }
+    //         return taskDetails;
+    //     } catch (error) {
+    //         console.error('Error fetching tasks:', error);
+    //         return [];
+    //     }
+    // }
 
-    // -----------------------🫂🫂🫂🫂🫂🫂🫂🫂🫂 ---------------------------------
-    it('should fetch and display all tasks', async () => {
-        // Setup client
-        const client = new TonClient({
-            endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
-            apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
-        });
+    // // -----------------------🫂🫂🫂🫂🫂🫂🫂🫂🫂 ---------------------------------
+    // it('should fetch and display all tasks', async () => {
+    //     // Setup client
+    //     const client = new TonClient({
+    //         endpoint: rpc,
+    //         apiKey: api_key,
+    //     });
 
-        const contractAddress = Address.parse(contractAddress_);
+    //     const contractAddress = Address.parse(contractAddress_);
 
-        // Fetch all tasks
-        const tasks = await fetchAllTasks(client, contractAddress);
+    //     // Fetch all tasks
+    //     const tasks = await fetchAllTasks(client, contractAddress);
 
-        console.log('here now');
-        console.log(tasks);
-        // Verify if the specific task ID exists
-        const taskCode = 1; // The task ID we're trying to claim
-        const taskExists = tasks.some((task) => task.id === taskCode);
+    //     console.log('here now');
+    //     console.log(tasks);
+    //     // Verify if the specific task ID exists
+    //     const taskCode = 1; // The task ID we're trying to claim
+    //     const taskExists = tasks.some((task) => task.id === taskCode);
 
-        if (!taskExists) {
-            console.log(`Task ID ${taskCode} doesn't exist! You need to create it before claiming.`);
-        } else {
-            const task = tasks.find((t) => t.id === taskCode);
-            console.log(`Found task ID ${taskCode} with verification code ${task?.code}`);
-        }
-    }, 30000);
+    //     if (!taskExists) {
+    //         console.log(`Task ID ${taskCode} doesn't exist! You need to create it before claiming.`);
+    //     } else {
+    //         const task = tasks.find((t) => t.id === taskCode);
+    //         console.log(`Found task ID ${taskCode} with verification code ${task?.code}`);
+    //     }
+    // }, 30000);
 
     // --------------------------------------------⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️ ----------------------------------------------------------
 
     // 🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️🏆️-----------------------------------
     it('should claim a task using TON transfer with forwarded payload', async () => {
         // Constants
-        const taskCode = 2; // The task ID we've created
+        const taskCode = 1; // The task ID we've created
         const codeInput = 120; // The code we used when creating the task
         const OP_CLAIM_TASK = 0x42a0fb6d; // Replace with your actual operation code
 
         // Setup wallet
-        const mnemonic =
-            'stand window ill evil laugh cricket fantasy finish detail alcohol dune meadow prefer banner rough ball body empty easy lyrics essay fruit slice suit'.split(
-                ' ',
-            );
+        const mnemonic = mnemonics.split(' ');
         const key = await mnemonicToWalletKey(mnemonic);
 
         // Setup client
         const client = new TonClient({
-            endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
-            apiKey: '7bfba5a4ff93a6416d7ad114ca04ec196a12b6d4a12748608f947a43709d2a9a',
+            endpoint: rpc,
+            apiKey: api_key,
         });
 
         const wallet = WalletContractV5R1.create({
             workchain: 0,
             publicKey: key.publicKey,
-            walletId: { networkGlobalId: -3 },
+            walletId: { networkGlobalId: networkGlobalId_ },
         });
         const walletContract = client.open(wallet);
 
-        const jettonRootAddress = Address.parse('EQAb_8LdTzsDBWmiyVxdidb8xCMyuTJkNC5Cn2UpMMkHt2qC');
+        const jettonRootAddress = Address.parse(usdt_address);
         const jettonData = await client.runMethod(jettonRootAddress, 'get_jetton_data');
 
         const res = await client.runMethod(jettonRootAddress, 'get_jetton_data');
@@ -454,10 +457,10 @@ describe('SimpleCounter', () => {
             const alreadyClaimed = hasClaimed.stack.readBoolean();
             console.log('User has already claimed:', alreadyClaimed);
 
-            // if (alreadyClaimed) {
-            //     console.log('Task already claimed, skipping test');
-            //     return;
-            // }
+            if (alreadyClaimed) {
+                console.log('Task already claimed, skipping test');
+                return;
+            }
         } catch (error) {
             console.error('Error checking claim status:', error);
         }
@@ -474,7 +477,7 @@ describe('SimpleCounter', () => {
         await openedContract.send(
             walletContract.sender(key.secretKey),
             {
-                value: toNano('0.07'), // Enough gas
+                value: toNano('0.19'), // Enough gas
                 bounce: true,
             },
             claimTaskMsg,

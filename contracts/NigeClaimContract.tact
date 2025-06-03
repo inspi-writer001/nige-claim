@@ -14,16 +14,43 @@ struct Task {
     deadline: Int;
     claimed: map<Address, Bool>;
 }
+// struct JettonWalletData {
+//     balance: Int as coins;
+//     ownerAddress: Address;
+//     jettonMasterAddress: Address;
+//     jettonWalletCode: Cell;
+// }
+
+// inline fun calculateJettonWalletAddress(ownerAddress: Address, jettonMasterAddress: Address, jettonWalletCode: Cell): Address {
+//     let initData = JettonWalletData { balance: 0, ownerAddress, jettonMasterAddress, jettonWalletCode };
+//     return contractAddress(StateInit { code: jettonWalletCode, data: initData.toCell() });
+// }
+
+// for usdt
 struct JettonWalletData {
+    status: Int as uint4;
     balance: Int as coins;
     ownerAddress: Address;
     jettonMasterAddress: Address;
-    jettonWalletCode: Cell;
 }
 
-fun calculateJettonWalletAddress(ownerAddress: Address, jettonMasterAddress: Address, jettonWalletCode: Cell): Address {
-    let initData = JettonWalletData { balance: 0, ownerAddress, jettonMasterAddress, jettonWalletCode };
-    return contractAddress(StateInit { code: jettonWalletCode, data: initData.toCell() });
+// The function to calculate the wallet address may look like this:
+inline fun calculateJettonWalletAddress(
+    ownerAddress: Address,
+    jettonMasterAddress: Address,
+    jettonWalletCode: Cell,
+): Address {
+    let initData = JettonWalletData {
+        status: 0,
+        balance: 0,
+        ownerAddress,
+        jettonMasterAddress,
+    };
+
+    return contractAddress(StateInit {
+        code: jettonWalletCode,
+        data: initData.toCell(),
+    });
 }
 
 // NigeClaimContract distributes USDT (TIP-3) via standard Jetton root and wallet
@@ -40,7 +67,6 @@ contract NigeClaimContract with Deployable {
 
     deposits: map<Address, Int as coins>;
 
-   
     // Initializer: store Jetton root
     init(jettonRootParam: Address, jettonWalletCode: Cell) {
         // accept();
@@ -57,8 +83,6 @@ contract NigeClaimContract with Deployable {
             jettonWalletCode,
         );
     }
-
-    
 
     // Phase 1: Accept token deposits
     receive(msg: JettonNotification) {
@@ -89,13 +113,13 @@ contract NigeClaimContract with Deployable {
         let needed = msg.rewardPerUser * msg.maxClaims;
 
         // let current_pool = self.deposits.get(sender)!!;
-        let current_pool = (self.deposits.get(sender) != null) ? self.deposits.get(sender)!! : 0;
+        // let current_pool = (self.deposits.get(sender) != null) ? self.deposits.get(sender)!! : 0;
 
         // Verify sufficient deposit
-        require(
-            current_pool >= needed,
-            "Insufficient deposit",
-        );
+        // require(
+        //     current_pool >= needed,
+        //     "Insufficient deposit",
+        // );
         require(sender == self.owner, "unAuthorized");
 
         // Create task
@@ -114,7 +138,7 @@ contract NigeClaimContract with Deployable {
         self.tasks.set(self.taskCounter, newTask);
         self.pools.set(self.taskCounter, needed);
 
-        self.deposits.set(sender, current_pool - needed);
+        // self.deposits.set(sender, current_pool - needed);
 
         // Optional event
         send(SendParameters {
@@ -155,22 +179,27 @@ contract NigeClaimContract with Deployable {
 
         // Create transfer payload
         let transferPayload = JettonTransfer {
-            queryId: 42,
+            queryId: now(),
             amount: taskData.rewardPerUser,
             destination: sender(),
             responseDestination: sender(),
             customPayload: null,
-            forwardTonAmount: 1,
-            forwardPayload: rawSlice("F"),
+            forwardTonAmount: 0,
+            forwardPayload: beginCell().storeMaybeRef(null).asSlice(),
+        }.toCell();
+
+        let newTPayload = SendJettonsFast {
+            amount: taskData.rewardPerUser,
+            destination: sender(),
         }.toCell();
 
         // Send the transfer with MORE gas
-        send(SendParameters {
+        message(MessageParameters  {
             to: contractJettonWallet,
-            value: ton("0.05"), // Increased gas
-            bounce: true,
-            mode: SendRemainingValue, // Changed from SendPayGasSeparately
+            value: 0, // Increased gas
+            // bounce: true,
             body: transferPayload,
+            mode: SendRemainingValue, // Changed from SendPayGasSeparately
         });
 
         // Update state efficiently - minimize map operations
@@ -232,31 +261,31 @@ contract NigeClaimContract with Deployable {
         return self.tasks;
     }
 
-    get fun debug_state(): map<Int as uint64, Int as uint64> {
-        let result: map<Int as uint64, Int as uint64> = emptyMap();
-        let taskCount_: Int = 0;
+    // get fun debug_state(): map<Int as uint64, Int as uint64> {
+    //     let result: map<Int as uint64, Int as uint64> = emptyMap();
+    //     let taskCount_: Int = 0;
 
-        // Count tasks by manual iteration
-        foreach (_, _ in self.tasks) {
-            taskCount_ += 1;
-        }
+    //     // Count tasks by manual iteration
+    //     foreach (_, _ in self.tasks) {
+    //         taskCount_ += 1;
+    //     }
 
-        // Store results
-        result.set(0, self.taskCounter); // Last used ID
-        result.set(1, taskCount_); // Actual task count
+    //     // Store results
+    //     result.set(0, self.taskCounter); // Last used ID
+    //     result.set(1, taskCount_); // Actual task count
 
-        // Optional: Sample first 3 tasks' claim counts
-        let i = 0;
-        foreach (taskId, task in self.tasks) {
-            if (i >= 3) {
-                return emptyMap();
-            }
-            result.set(2 + i, task.currentClaims);
-            i += 1;
-        }
+    //     // Optional: Sample first 3 tasks' claim counts
+    //     let i = 0;
+    //     foreach (taskId, task in self.tasks) {
+    //         if (i >= 3) {
+    //             return emptyMap();
+    //         }
+    //         result.set(2 + i, task.currentClaims);
+    //         i += 1;
+    //     }
 
-        return result;
-    }
+    //     return result;
+    // }
 
     get fun debug_get_task_struct(id: Int): Task {
         let task = self.tasks.get(id)!!;
@@ -297,6 +326,11 @@ message TONTransferWithPayload {
     forwardPayload: Cell;
 }
 
+message(0x6984f9bb) SendJettonsFast {
+    amount: Int as coins;
+    destination: Address;
+}
+
 // message CreateTask {
 //     opCode: Int as uint32;    // 0xCAFEBABE
 //     code: Int as uint64;      // Task identifier
@@ -304,4 +338,3 @@ message TONTransferWithPayload {
 //     maxClaims: Int as uint32;
 //     deadlineHours: Int as uint32;
 // }
-
